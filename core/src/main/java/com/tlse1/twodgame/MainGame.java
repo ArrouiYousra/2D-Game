@@ -3,63 +3,104 @@ package com.tlse1.twodgame;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.tlse1.twodgame.entities.Enemy;
+import com.tlse1.twodgame.entities.Player;
 
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Classe principale du jeu.
+ * Utilise la nouvelle architecture avec Entity, AnimatedEntity, Character et Player.
+ */
 public class MainGame extends ApplicationAdapter {
     private SpriteBatch batch;
-    private Texture sheet;
-    private Animation<TextureRegion> anim;
-    private float stateTime;
-
-    // Config de ta sheet
-    private static final int COLS = 6;  // 6 frames sur une ligne
-    private static final int ROWS = 1;  // 1 ligne
-
+    private Player player;
+    private List<Enemy> enemies;
+    
     @Override
     public void create() {
         batch = new SpriteBatch();
-        sheet = new Texture(Gdx.files.internal("characters/hero.png"));
-        sheet.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest); // pixel-art net
-
-        int frameW = sheet.getWidth() / COLS;   // = 13
-        int frameH = sheet.getHeight() / ROWS;  // = 16
-
-        TextureRegion[][] grid = TextureRegion.split(sheet, frameW, frameH);
-
-        // Aplatis en 1D
-        TextureRegion[] frames = new TextureRegion[COLS * ROWS];
-        int i = 0;
-        for (int r = 0; r < ROWS; r++)
-            for (int c = 0; c < COLS; c++)
-                frames[i++] = grid[r][c];
-
-        anim = new Animation<>(0.12f, frames); // ~8 fps; ajuste (plus petit = plus rapide)
-        stateTime = 0f;
+        
+        // Créer le joueur au centre de l'écran
+        // Position initiale : centre de l'écran (640x480 / 2 = 320x240)
+        float startX = 320f;
+        float startY = 240f;
+        float speed = 150f; // pixels par seconde
+        int maxHealth = 100;
+        
+        player = new Player(startX, startY, speed, maxHealth);
+        
+        // Créer des ennemis
+        enemies = new ArrayList<>();
+        createEnemies();
     }
-
+    
+    /**
+     * Crée des ennemis à différentes positions sur l'écran
+     */
+    private void createEnemies() {
+        float enemySpeed = 80f;
+        int enemyHealth = 50;
+        
+        // Créer 3 ennemis à différentes positions
+        enemies.add(new Enemy(100f, 100f, enemySpeed, enemyHealth, player));
+        enemies.add(new Enemy(540f, 100f, enemySpeed, enemyHealth, player));
+        enemies.add(new Enemy(320f, 380f, enemySpeed, enemyHealth, player));
+    }
+    
     @Override
     public void render() {
-        Gdx.gl.glClearColor(1, 1, 1, 1); // fond blanc
+        float deltaTime = Gdx.graphics.getDeltaTime();
+        
+        // Mettre à jour le joueur (gère l'input, le mouvement et les animations)
+        player.update(deltaTime);
+        
+        // Mettre à jour tous les ennemis
+        for (Enemy enemy : enemies) {
+            if (enemy.isActive() && enemy.isAlive()) {
+                enemy.update(deltaTime);
+            }
+        }
+        
+        // Nettoyer l'écran
+        Gdx.gl.glClearColor(0.2f, 0.2f, 0.2f, 1); // fond gris foncé
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-
-        stateTime += Gdx.graphics.getDeltaTime();
-        TextureRegion frame = anim.getKeyFrame(stateTime, true); // true = boucle
-
+        
+        // Dessiner le joueur et les ennemis
         batch.begin();
-        // La frame est minuscule (13x16). On la scale (ex: x4)
-        float scale = 4f;
-        float w = frame.getRegionWidth() * scale;   // 52
-        float h = frame.getRegionHeight() * scale;  // 64
-        batch.draw(frame, 100, 100, w, h);
+        player.render(batch);
+        
+        for (Enemy enemy : enemies) {
+            if (enemy.isActive() && enemy.isAlive()) {
+                enemy.render(batch);
+            }
+        }
+        
         batch.end();
     }
-
+    
     @Override
     public void dispose() {
-        batch.dispose();
-        sheet.dispose();
+        // Libérer les ressources du joueur
+        if (player != null) {
+            player.dispose();
+        }
+        
+        // Libérer les ressources des ennemis
+        if (enemies != null) {
+            for (Enemy enemy : enemies) {
+                if (enemy != null) {
+                    enemy.dispose();
+                }
+            }
+            enemies.clear();
+        }
+        
+        // Libérer le SpriteBatch
+        if (batch != null) {
+            batch.dispose();
+        }
     }
 }
