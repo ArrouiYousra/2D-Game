@@ -11,6 +11,7 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.tlse1.twodgame.TwoDGame;
 import com.tlse1.twodgame.screens.GameScreen;
+import com.tlse1.twodgame.screens.SettingsScreen;
 
 /**
  * Écran de menu principal.
@@ -27,7 +28,10 @@ public class MenuScreen implements Screen {
     // Textures des boutons
     private Texture buttonPlayNotPressed;
     private Texture buttonPlayPressed;
-    private boolean isButtonPressed = false;
+    private Texture buttonSettingsNotPressed;
+    private Texture buttonSettingsPressed;
+    private boolean isPlayButtonPressed = false;
+    private boolean isSettingsButtonPressed = false;
     
     // Textes
     private String titleText = "2D GAME";
@@ -45,8 +49,10 @@ public class MenuScreen implements Screen {
     private float screenWidth;
     private float screenHeight;
     private float titleX, titleY;
-    private float buttonX, buttonY;
+    private float buttonPlayX, buttonPlayY;
+    private float buttonSettingsX, buttonSettingsY;
     private float instructionX, instructionY;
+    private float buttonSpacing = 20f; // Espacement entre les boutons
     
     public MenuScreen(TwoDGame game) {
         this.game = game;
@@ -79,14 +85,21 @@ public class MenuScreen implements Screen {
      * Charge les textures des boutons
      */
     private void loadButtonTextures() {
+        // Charger les textures du bouton Play
         buttonPlayNotPressed = new Texture(Gdx.files.internal("PostApocalypse_AssetPack_v1.1.2/UI/Menu/Main Menu/Play_Not-Pressed.png"));
         buttonPlayPressed = new Texture(Gdx.files.internal("PostApocalypse_AssetPack_v1.1.2/UI/Menu/Main Menu/Play_Pressed.png"));
+        
+        // Charger les textures du bouton Settings
+        buttonSettingsNotPressed = new Texture(Gdx.files.internal("PostApocalypse_AssetPack_v1.1.2/UI/Menu/Main Menu/Settings_Not-Pressed.png"));
+        buttonSettingsPressed = new Texture(Gdx.files.internal("PostApocalypse_AssetPack_v1.1.2/UI/Menu/Main Menu/Settings_Pressed.png"));
         
         // Définir le filtre pour éviter le flou lors du redimensionnement
         buttonPlayNotPressed.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
         buttonPlayPressed.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+        buttonSettingsNotPressed.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+        buttonSettingsPressed.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
         
-        // Utiliser les dimensions réelles de la texture
+        // Utiliser les dimensions réelles de la texture (tous les boutons ont la même taille)
         buttonWidth = buttonPlayNotPressed.getWidth();
         buttonHeight = buttonPlayNotPressed.getHeight();
     }
@@ -114,13 +127,21 @@ public class MenuScreen implements Screen {
         titleX = (screenWidth - titleLayout.width) / 2f;
         titleY = screenHeight * 0.75f;
         
-        // Centrer le bouton au milieu
-        buttonX = (screenWidth - buttonWidth) / 2f;
-        buttonY = screenHeight * 0.45f;
+        // Calculer la hauteur totale des boutons pour les centrer verticalement
+        float totalButtonsHeight = (buttonHeight * 2) + buttonSpacing;
+        float startY = screenHeight * 0.5f + totalButtonsHeight / 2f;
         
-        // Centrer les instructions sous le bouton
+        // Positionner le bouton Play (en haut)
+        buttonPlayX = (screenWidth - buttonWidth) / 2f;
+        buttonPlayY = startY - buttonHeight;
+        
+        // Positionner le bouton Settings (en bas)
+        buttonSettingsX = (screenWidth - buttonWidth) / 2f;
+        buttonSettingsY = startY - (buttonHeight * 2) - buttonSpacing;
+        
+        // Centrer les instructions sous les boutons
         instructionX = (screenWidth - instructionLayout.width) / 2f;
-        instructionY = buttonY - buttonHeight / 2f - 30f;
+        instructionY = buttonSettingsY - buttonHeight / 2f - 30f;
     }
     
     @Override
@@ -146,9 +167,13 @@ public class MenuScreen implements Screen {
         // Titre
         titleFont.draw(batch, titleLayout, titleX, titleY);
         
-        // Dessiner le bouton (utiliser la texture pressée ou non pressée)
-        Texture currentButtonTexture = isButtonPressed ? buttonPlayPressed : buttonPlayNotPressed;
-        batch.draw(currentButtonTexture, buttonX, buttonY, buttonWidth, buttonHeight);
+        // Dessiner le bouton Play (utiliser la texture pressée ou non pressée)
+        Texture currentPlayTexture = isPlayButtonPressed ? buttonPlayPressed : buttonPlayNotPressed;
+        batch.draw(currentPlayTexture, buttonPlayX, buttonPlayY, buttonWidth, buttonHeight);
+        
+        // Dessiner le bouton Settings (utiliser la texture pressée ou non pressée)
+        Texture currentSettingsTexture = isSettingsButtonPressed ? buttonSettingsPressed : buttonSettingsNotPressed;
+        batch.draw(currentSettingsTexture, buttonSettingsX, buttonSettingsY, buttonWidth, buttonHeight);
         
         // Instructions
         instructionFont.draw(batch, instructionLayout, instructionX, instructionY);
@@ -161,20 +186,30 @@ public class MenuScreen implements Screen {
             game.setScreen(new GameScreen(game));
         }
         
-        // Détecter le survol et le clic sur le bouton
+        // Détecter le survol et le clic sur les boutons
         // Convertir les coordonnées de l'écran vers les coordonnées de la caméra
         float touchX = Gdx.input.getX();
         float touchY = Gdx.graphics.getHeight() - Gdx.input.getY(); // Inverser Y car LibGDX utilise le bas comme origine
         
-        boolean isMouseOverButton = (touchX >= buttonX && touchX <= buttonX + buttonWidth &&
-                                     touchY >= buttonY && touchY <= buttonY + buttonHeight);
+        // Vérifier le survol du bouton Play
+        boolean isMouseOverPlay = (touchX >= buttonPlayX && touchX <= buttonPlayX + buttonWidth &&
+                                  touchY >= buttonPlayY && touchY <= buttonPlayY + buttonHeight);
         
-        // Mettre à jour l'état du bouton (pressé si survolé)
-        isButtonPressed = isMouseOverButton;
+        // Vérifier le survol du bouton Settings
+        boolean isMouseOverSettings = (touchX >= buttonSettingsX && touchX <= buttonSettingsX + buttonWidth &&
+                                      touchY >= buttonSettingsY && touchY <= buttonSettingsY + buttonHeight);
         
-        // Détecter le clic sur le bouton
-        if (Gdx.input.justTouched() && isMouseOverButton) {
-            game.setScreen(new GameScreen(game));
+        // Mettre à jour l'état des boutons (pressé si survolé)
+        isPlayButtonPressed = isMouseOverPlay;
+        isSettingsButtonPressed = isMouseOverSettings;
+        
+        // Détecter les clics sur les boutons
+        if (Gdx.input.justTouched()) {
+            if (isMouseOverPlay) {
+                game.setScreen(new GameScreen(game));
+            } else if (isMouseOverSettings) {
+                game.setScreen(new SettingsScreen(game));
+            }
         }
     }
     
@@ -217,6 +252,12 @@ public class MenuScreen implements Screen {
         }
         if (buttonPlayPressed != null) {
             buttonPlayPressed.dispose();
+        }
+        if (buttonSettingsNotPressed != null) {
+            buttonSettingsNotPressed.dispose();
+        }
+        if (buttonSettingsPressed != null) {
+            buttonSettingsPressed.dispose();
         }
         if (titleFont != null) {
             titleFont.dispose();
