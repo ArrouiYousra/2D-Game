@@ -5,11 +5,13 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.tlse1.twodgame.TwoDGame;
+import com.tlse1.twodgame.screens.GameScreen;
 
 /**
  * Écran de menu principal.
@@ -20,6 +22,7 @@ public class MenuScreen implements Screen {
     private TwoDGame game;
     private SpriteBatch batch;
     private ShapeRenderer shapeRenderer;
+    private OrthographicCamera camera;
     private BitmapFont titleFont;
     private BitmapFont buttonFont;
     private BitmapFont instructionFont;
@@ -47,8 +50,17 @@ public class MenuScreen implements Screen {
     
     public MenuScreen(TwoDGame game) {
         this.game = game;
-        this.batch = new SpriteBatch();
-        this.shapeRenderer = new ShapeRenderer();
+        
+        // Initialiser la caméra avec les dimensions initiales
+        screenWidth = Gdx.graphics.getWidth();
+        screenHeight = Gdx.graphics.getHeight();
+        camera = new OrthographicCamera(screenWidth, screenHeight);
+        camera.setToOrtho(false, screenWidth, screenHeight);
+        camera.update();
+        
+        // Initialiser le SpriteBatch et ShapeRenderer avec la caméra
+        batch = new SpriteBatch();
+        shapeRenderer = new ShapeRenderer();
         
         // Créer les polices
         createFonts();
@@ -59,8 +71,6 @@ public class MenuScreen implements Screen {
         instructionLayout = new GlyphLayout();
         
         // Calculer les positions initiales
-        screenWidth = Gdx.graphics.getWidth();
-        screenHeight = Gdx.graphics.getHeight();
         calculatePositions();
     }
     
@@ -107,12 +117,18 @@ public class MenuScreen implements Screen {
     
     @Override
     public void render(float delta) {
+        // Mettre à jour la caméra
+        camera.update();
+        
         // Nettoyer l'écran
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.2f, 1); // fond bleu foncé
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
         
+        // Définir les matrices de projection pour utiliser la caméra
+        batch.setProjectionMatrix(camera.combined);
+        shapeRenderer.setProjectionMatrix(camera.combined);
+        
         // Dessiner le bouton avec ShapeRenderer
-        shapeRenderer.setProjectionMatrix(batch.getProjectionMatrix());
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         
         // Fond du bouton (gris foncé)
@@ -160,9 +176,11 @@ public class MenuScreen implements Screen {
         
         // Détecter le clic sur le bouton
         if (Gdx.input.justTouched()) {
+            // Convertir les coordonnées de l'écran vers les coordonnées de la caméra
             float touchX = Gdx.input.getX();
             float touchY = Gdx.graphics.getHeight() - Gdx.input.getY(); // Inverser Y car LibGDX utilise le bas comme origine
             
+            // Utiliser les coordonnées de la caméra pour la détection
             if (touchX >= buttonX && touchX <= buttonX + buttonWidth &&
                 touchY >= buttonY && touchY <= buttonY + buttonHeight) {
                 game.setScreen(new GameScreen(game));
@@ -172,9 +190,15 @@ public class MenuScreen implements Screen {
     
     @Override
     public void resize(int width, int height) {
-        // Recalculer les positions si la fenêtre change de taille
+        // Mettre à jour les dimensions de l'écran
         screenWidth = width;
         screenHeight = height;
+        
+        // Mettre à jour la caméra avec les nouvelles dimensions
+        camera.setToOrtho(false, screenWidth, screenHeight);
+        camera.update();
+        
+        // Recalculer les positions des éléments
         calculatePositions();
     }
     
