@@ -30,8 +30,11 @@ public class MenuScreen implements Screen {
     private Texture buttonPlayPressed;
     private Texture buttonSettingsNotPressed;
     private Texture buttonSettingsPressed;
+    private Texture buttonQuitNotPressed;
+    private Texture buttonQuitPressed;
     private boolean isPlayButtonPressed = false;
     private boolean isSettingsButtonPressed = false;
+    private boolean isQuitButtonPressed = false;
     
     // Textes
     private String titleText = "2D GAME";
@@ -51,6 +54,7 @@ public class MenuScreen implements Screen {
     private float titleX, titleY;
     private float buttonPlayX, buttonPlayY;
     private float buttonSettingsX, buttonSettingsY;
+    private float buttonQuitX, buttonQuitY;
     private float instructionX, instructionY;
     private float buttonSpacing = 20f; // Espacement entre les boutons
     
@@ -93,11 +97,17 @@ public class MenuScreen implements Screen {
         buttonSettingsNotPressed = new Texture(Gdx.files.internal("PostApocalypse_AssetPack_v1.1.2/UI/Menu/Main Menu/Settings_Not-Pressed.png"));
         buttonSettingsPressed = new Texture(Gdx.files.internal("PostApocalypse_AssetPack_v1.1.2/UI/Menu/Main Menu/Settings_Pressed.png"));
         
+        // Charger les textures du bouton Quit
+        buttonQuitNotPressed = new Texture(Gdx.files.internal("PostApocalypse_AssetPack_v1.1.2/UI/Menu/Main Menu/Quit_Not-Pressed.png"));
+        buttonQuitPressed = new Texture(Gdx.files.internal("PostApocalypse_AssetPack_v1.1.2/UI/Menu/Main Menu/Quit_Pressed.png"));
+        
         // Définir le filtre pour éviter le flou lors du redimensionnement
         buttonPlayNotPressed.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
         buttonPlayPressed.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
         buttonSettingsNotPressed.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
         buttonSettingsPressed.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+        buttonQuitNotPressed.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+        buttonQuitPressed.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
         
         // Utiliser les dimensions réelles de la texture (tous les boutons ont la même taille)
         buttonWidth = buttonPlayNotPressed.getWidth();
@@ -128,20 +138,24 @@ public class MenuScreen implements Screen {
         titleY = screenHeight * 0.75f;
         
         // Calculer la hauteur totale des boutons pour les centrer verticalement
-        float totalButtonsHeight = (buttonHeight * 2) + buttonSpacing;
+        float totalButtonsHeight = (buttonHeight * 3) + (buttonSpacing * 2);
         float startY = screenHeight * 0.5f + totalButtonsHeight / 2f;
         
         // Positionner le bouton Play (en haut)
         buttonPlayX = (screenWidth - buttonWidth) / 2f;
         buttonPlayY = startY - buttonHeight;
         
-        // Positionner le bouton Settings (en bas)
+        // Positionner le bouton Settings (au milieu)
         buttonSettingsX = (screenWidth - buttonWidth) / 2f;
         buttonSettingsY = startY - (buttonHeight * 2) - buttonSpacing;
         
+        // Positionner le bouton Quit (en bas)
+        buttonQuitX = (screenWidth - buttonWidth) / 2f;
+        buttonQuitY = startY - (buttonHeight * 3) - (buttonSpacing * 2);
+        
         // Centrer les instructions sous les boutons
         instructionX = (screenWidth - instructionLayout.width) / 2f;
-        instructionY = buttonSettingsY - buttonHeight / 2f - 30f;
+        instructionY = buttonQuitY - buttonHeight / 2f - 30f;
     }
     
     @Override
@@ -175,6 +189,10 @@ public class MenuScreen implements Screen {
         Texture currentSettingsTexture = isSettingsButtonPressed ? buttonSettingsPressed : buttonSettingsNotPressed;
         batch.draw(currentSettingsTexture, buttonSettingsX, buttonSettingsY, buttonWidth, buttonHeight);
         
+        // Dessiner le bouton Quit (utiliser la texture pressée ou non pressée)
+        Texture currentQuitTexture = isQuitButtonPressed ? buttonQuitPressed : buttonQuitNotPressed;
+        batch.draw(currentQuitTexture, buttonQuitX, buttonQuitY, buttonWidth, buttonHeight);
+        
         // Instructions
         instructionFont.draw(batch, instructionLayout, instructionX, instructionY);
         
@@ -199,9 +217,14 @@ public class MenuScreen implements Screen {
         boolean isMouseOverSettings = (touchX >= buttonSettingsX && touchX <= buttonSettingsX + buttonWidth &&
                                       touchY >= buttonSettingsY && touchY <= buttonSettingsY + buttonHeight);
         
+        // Vérifier le survol du bouton Quit
+        boolean isMouseOverQuit = (touchX >= buttonQuitX && touchX <= buttonQuitX + buttonWidth &&
+                                   touchY >= buttonQuitY && touchY <= buttonQuitY + buttonHeight);
+        
         // Mettre à jour l'état des boutons (pressé si survolé)
         isPlayButtonPressed = isMouseOverPlay;
         isSettingsButtonPressed = isMouseOverSettings;
+        isQuitButtonPressed = isMouseOverQuit;
         
         // Détecter les clics sur les boutons
         if (Gdx.input.justTouched()) {
@@ -209,6 +232,8 @@ public class MenuScreen implements Screen {
                 game.setScreen(new GameScreen(game));
             } else if (isMouseOverSettings) {
                 game.setScreen(new SettingsScreen(game));
+            } else if (isMouseOverQuit) {
+                Gdx.app.exit(); // Quitter le jeu
             }
         }
     }
@@ -258,6 +283,12 @@ public class MenuScreen implements Screen {
         }
         if (buttonSettingsPressed != null) {
             buttonSettingsPressed.dispose();
+        }
+        if (buttonQuitNotPressed != null) {
+            buttonQuitNotPressed.dispose();
+        }
+        if (buttonQuitPressed != null) {
+            buttonQuitPressed.dispose();
         }
         if (titleFont != null) {
             titleFont.dispose();
