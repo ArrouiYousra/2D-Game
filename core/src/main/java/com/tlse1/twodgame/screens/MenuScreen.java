@@ -3,13 +3,12 @@ package com.tlse1.twodgame.screens;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.tlse1.twodgame.TwoDGame;
 import com.tlse1.twodgame.screens.GameScreen;
 
@@ -21,25 +20,26 @@ public class MenuScreen implements Screen {
     
     private TwoDGame game;
     private SpriteBatch batch;
-    private ShapeRenderer shapeRenderer;
     private OrthographicCamera camera;
     private BitmapFont titleFont;
-    private BitmapFont buttonFont;
     private BitmapFont instructionFont;
+    
+    // Textures des boutons
+    private Texture buttonPlayNotPressed;
+    private Texture buttonPlayPressed;
+    private boolean isButtonPressed = false;
     
     // Textes
     private String titleText = "2D GAME";
-    private String buttonText = "JOUER";
     private String instructionText = "Appuyez sur ESPACE ou ENTER pour jouer";
     
     // Layouts pour calculer les tailles
     private GlyphLayout titleLayout;
-    private GlyphLayout buttonLayout;
     private GlyphLayout instructionLayout;
     
-    // Dimensions du bouton
-    private float buttonWidth = 250f;
-    private float buttonHeight = 60f;
+    // Dimensions du bouton (seront ajustées selon la texture)
+    private float buttonWidth;
+    private float buttonHeight;
     
     // Positions (calculées dynamiquement)
     private float screenWidth;
@@ -58,20 +58,37 @@ public class MenuScreen implements Screen {
         camera.setToOrtho(false, screenWidth, screenHeight);
         camera.update();
         
-        // Initialiser le SpriteBatch et ShapeRenderer avec la caméra
+        // Initialiser le SpriteBatch avec la caméra
         batch = new SpriteBatch();
-        shapeRenderer = new ShapeRenderer();
+        
+        // Charger les textures des boutons
+        loadButtonTextures();
         
         // Créer les polices
         createFonts();
         
         // Initialiser les layouts
         titleLayout = new GlyphLayout();
-        buttonLayout = new GlyphLayout();
         instructionLayout = new GlyphLayout();
         
         // Calculer les positions initiales
         calculatePositions();
+    }
+    
+    /**
+     * Charge les textures des boutons
+     */
+    private void loadButtonTextures() {
+        buttonPlayNotPressed = new Texture(Gdx.files.internal("PostApocalypse_AssetPack_v1.1.2/UI/Menu/Main Menu/Play_Not-Pressed.png"));
+        buttonPlayPressed = new Texture(Gdx.files.internal("PostApocalypse_AssetPack_v1.1.2/UI/Menu/Main Menu/Play_Pressed.png"));
+        
+        // Définir le filtre pour éviter le flou lors du redimensionnement
+        buttonPlayNotPressed.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+        buttonPlayPressed.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+        
+        // Utiliser les dimensions réelles de la texture
+        buttonWidth = buttonPlayNotPressed.getWidth();
+        buttonHeight = buttonPlayNotPressed.getHeight();
     }
     
     /**
@@ -80,9 +97,6 @@ public class MenuScreen implements Screen {
     private void createFonts() {
         titleFont = new BitmapFont();
         titleFont.getData().setScale(3f); // Taille 3x pour le titre
-        
-        buttonFont = new BitmapFont();
-        buttonFont.getData().setScale(2f); // Taille 2x pour le bouton
         
         instructionFont = new BitmapFont();
         instructionFont.getData().setScale(1f); // Taille normale pour les instructions
@@ -94,7 +108,6 @@ public class MenuScreen implements Screen {
     private void calculatePositions() {
         // Mettre à jour les layouts avec les nouvelles dimensions
         titleLayout.setText(titleFont, titleText);
-        buttonLayout.setText(buttonFont, buttonText);
         instructionLayout.setText(instructionFont, instructionText);
         
         // Centrer le titre en haut
@@ -126,42 +139,16 @@ public class MenuScreen implements Screen {
         
         // Définir les matrices de projection pour utiliser la caméra
         batch.setProjectionMatrix(camera.combined);
-        shapeRenderer.setProjectionMatrix(camera.combined);
         
-        // Dessiner le bouton avec ShapeRenderer
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        
-        // Fond du bouton (gris foncé)
-        shapeRenderer.setColor(0.3f, 0.3f, 0.4f, 1f);
-        shapeRenderer.rect(buttonX, buttonY, buttonWidth, buttonHeight);
-        
-        shapeRenderer.end();
-        
-        // Bordure du bouton (dessinée avec des rectangles fins)
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(Color.WHITE);
-        
-        // Bordure supérieure
-        shapeRenderer.rect(buttonX - 2, buttonY + buttonHeight, buttonWidth + 4, 2);
-        // Bordure inférieure
-        shapeRenderer.rect(buttonX - 2, buttonY - 2, buttonWidth + 4, 2);
-        // Bordure gauche
-        shapeRenderer.rect(buttonX - 2, buttonY - 2, 2, buttonHeight + 4);
-        // Bordure droite
-        shapeRenderer.rect(buttonX + buttonWidth, buttonY - 2, 2, buttonHeight + 4);
-        
-        shapeRenderer.end();
-        
-        // Dessiner les textes
+        // Dessiner les éléments
         batch.begin();
         
         // Titre
         titleFont.draw(batch, titleLayout, titleX, titleY);
         
-        // Texte du bouton (centré dans le bouton)
-        float buttonTextX = buttonX + (buttonWidth - buttonLayout.width) / 2f;
-        float buttonTextY = buttonY + (buttonHeight + buttonLayout.height) / 2f;
-        buttonFont.draw(batch, buttonLayout, buttonTextX, buttonTextY);
+        // Dessiner le bouton (utiliser la texture pressée ou non pressée)
+        Texture currentButtonTexture = isButtonPressed ? buttonPlayPressed : buttonPlayNotPressed;
+        batch.draw(currentButtonTexture, buttonX, buttonY, buttonWidth, buttonHeight);
         
         // Instructions
         instructionFont.draw(batch, instructionLayout, instructionX, instructionY);
@@ -174,17 +161,20 @@ public class MenuScreen implements Screen {
             game.setScreen(new GameScreen(game));
         }
         
+        // Détecter le survol et le clic sur le bouton
+        // Convertir les coordonnées de l'écran vers les coordonnées de la caméra
+        float touchX = Gdx.input.getX();
+        float touchY = Gdx.graphics.getHeight() - Gdx.input.getY(); // Inverser Y car LibGDX utilise le bas comme origine
+        
+        boolean isMouseOverButton = (touchX >= buttonX && touchX <= buttonX + buttonWidth &&
+                                     touchY >= buttonY && touchY <= buttonY + buttonHeight);
+        
+        // Mettre à jour l'état du bouton (pressé si survolé)
+        isButtonPressed = isMouseOverButton;
+        
         // Détecter le clic sur le bouton
-        if (Gdx.input.justTouched()) {
-            // Convertir les coordonnées de l'écran vers les coordonnées de la caméra
-            float touchX = Gdx.input.getX();
-            float touchY = Gdx.graphics.getHeight() - Gdx.input.getY(); // Inverser Y car LibGDX utilise le bas comme origine
-            
-            // Utiliser les coordonnées de la caméra pour la détection
-            if (touchX >= buttonX && touchX <= buttonX + buttonWidth &&
-                touchY >= buttonY && touchY <= buttonY + buttonHeight) {
-                game.setScreen(new GameScreen(game));
-            }
+        if (Gdx.input.justTouched() && isMouseOverButton) {
+            game.setScreen(new GameScreen(game));
         }
     }
     
@@ -219,13 +209,17 @@ public class MenuScreen implements Screen {
     
     @Override
     public void dispose() {
-        batch.dispose();
-        shapeRenderer.dispose();
+        if (batch != null) {
+            batch.dispose();
+        }
+        if (buttonPlayNotPressed != null) {
+            buttonPlayNotPressed.dispose();
+        }
+        if (buttonPlayPressed != null) {
+            buttonPlayPressed.dispose();
+        }
         if (titleFont != null) {
             titleFont.dispose();
-        }
-        if (buttonFont != null) {
-            buttonFont.dispose();
         }
         if (instructionFont != null) {
             instructionFont.dispose();
