@@ -37,7 +37,7 @@ public class MenuScreen implements Screen {
     private boolean isQuitButtonPressed = false;
     
     // Textes
-    private String titleText = "2D GAME";
+    private String titleText = "Ruins of the fallen";
     private String instructionText = "Appuyez sur ESPACE ou ENTER pour jouer";
     
     // Layouts pour calculer les tailles
@@ -169,7 +169,7 @@ public class MenuScreen implements Screen {
         camera.update();
         
         // Nettoyer l'écran
-        Gdx.gl.glClearColor(0.1f, 0.1f, 0.2f, 1); // fond bleu foncé
+        Gdx.gl.glClearColor(0.05f, 0.05f, 0.15f, 1); // fond bleu très foncé (plus sombre)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
         
         // Définir les matrices de projection pour utiliser la caméra
