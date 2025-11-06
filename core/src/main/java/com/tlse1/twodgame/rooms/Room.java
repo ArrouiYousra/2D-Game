@@ -91,6 +91,8 @@ public class Room {
         for (Enemy enemy : enemies) {
             if (enemy.isActive() && enemy.isAlive()) {
                 enemy.update(deltaTime);
+                // Limiter les ennemis aux bounds de la salle
+                enemy.clampToBounds(width, height);
             }
         }
         
