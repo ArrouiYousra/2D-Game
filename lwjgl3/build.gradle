@@ -45,9 +45,14 @@ def os = System.properties['os.name'].toLowerCase()
 
 run {
   workingDir = rootProject.file('assets').path
-// You can uncomment the next line if your IDE claims a build failure even when the app closed properly.
-  //setIgnoreExitValue(true)
-
+  
+  // Ajoutez ces lignes avant le if (os.contains('mac'))
+  jvmArgs = [
+    '-Dorg.lwjgl.system.allocator=system',
+    '-Dorg.lwjgl.util.NoChecks=true',
+    '-Dorg.lwjgl.opengl.Display.allowSoftwareOpenGL=true'
+  ]
+  
   if (os.contains('mac')) jvmArgs += "-XstartOnFirstThread"
 }
 
