@@ -22,6 +22,12 @@ sourceSets.main.resources.srcDirs += [ rootProject.file('assets').path ]
 mainClassName = 'com.tlse1.twodgame.lwjgl3.Lwjgl3Launcher'
 application.setMainClass(mainClassName)
 eclipse.project.name = appName + '-lwjgl3'
+
+// Exclure les fichiers Zone.Identifier (métadonnées Windows) du traitement des ressources
+processResources {
+    exclude '**/*Zone.Identifier'
+    exclude '**/*:Zone.Identifier'
+}
 java.sourceCompatibility = 8
 java.targetCompatibility = 8
 if (JavaVersion.current().isJava9Compatible()) {

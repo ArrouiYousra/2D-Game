@@ -10,6 +10,7 @@ import com.tlse1.twodgame.TwoDGame;
 import com.tlse1.twodgame.entities.Player;
 import com.tlse1.twodgame.managers.RoomManager;
 import com.tlse1.twodgame.rooms.Room;
+import com.tlse1.twodgame.ui.HUD;
 import com.tlse1.twodgame.utils.Difficulty;
 import com.tlse1.twodgame.utils.RoomTransition;
 
@@ -25,6 +26,7 @@ public class GameScreen implements Screen {
     private Player player;
     private RoomManager roomManager;
     private RoomTransition transition;
+    private HUD hud;
     
     // Difficulté (par défaut MEDIUM, pourra être sélectionnée plus tard)
     private Difficulty difficulty = Difficulty.MEDIUM;
@@ -60,6 +62,9 @@ public class GameScreen implements Screen {
         // Créer le système de transition
         transition = new RoomTransition();
         isTransitioning = false;
+        
+        // Créer le HUD
+        hud = new HUD(player);
     }
     
     @Override
@@ -84,8 +89,20 @@ public class GameScreen implements Screen {
             updateGame(delta);
         }
         
+        // Mettre à jour le HUD
+        if (hud != null) {
+            hud.update();
+        }
+        
         // Rendu
         renderGame();
+        
+        // Dessiner le HUD par-dessus le jeu
+        if (hud != null && !isTransitioning) {
+            batch.begin();
+            hud.render(batch);
+            batch.end();
+        }
         
         // Dessiner la transition par-dessus si nécessaire
         if (isTransitioning || transition.isTransitioning()) {
@@ -182,7 +199,14 @@ public class GameScreen implements Screen {
     
     @Override
     public void resize(int width, int height) {
-        // Gérer le redimensionnement si nécessaire
+        // Mettre à jour la caméra
+        camera.setToOrtho(false, width, height);
+        camera.update();
+        
+        // Mettre à jour le HUD
+        if (hud != null) {
+            hud.resize(width, height);
+        }
     }
     
     @Override
@@ -214,6 +238,10 @@ public class GameScreen implements Screen {
         
         if (transition != null) {
             transition.dispose();
+        }
+        
+        if (hud != null) {
+            hud.dispose();
         }
         
         if (batch != null) {

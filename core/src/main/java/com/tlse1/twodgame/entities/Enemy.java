@@ -1,6 +1,8 @@
 package com.tlse1.twodgame.entities;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.g2d.Animation;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.tlse1.twodgame.utils.Direction;
 
 /**
@@ -57,11 +59,80 @@ public class Enemy extends Character {
             speed = 80f; // pixels par seconde (plus lent que le joueur)
         }
         
+        // Configurer les chemins d'assets pour les zombies
+        idlePathPrefix = "PostApocalypse_AssetPack_v1.1.2/Enemies/Zombie_Small/";
+        runPathPrefix = "PostApocalypse_AssetPack_v1.1.2/Enemies/Zombie_Small/";
+        spriteName = "Zombie_Small";
+        
         // Initialiser toutes les animations
         initializeAnimations();
         
         // Direction par défaut
         currentDirection = Direction.DOWN;
+    }
+    
+    /**
+     * Charge une animation idle pour une direction donnée (surcharge pour utiliser les assets de zombie)
+     */
+    @Override
+    protected void loadIdleAnimation(Direction direction) {
+        String path = buildEnemyAnimationPath(idlePathPrefix, direction, "Idle");
+        Animation<TextureRegion> animation = loadAnimation(path);
+        
+        // Stocker la texture pour pouvoir la libérer
+        TextureRegion firstFrame = animation.getKeyFrame(0);
+        if (firstFrame != null && firstFrame.getTexture() != null) {
+            textures.add(firstFrame.getTexture());
+        }
+        
+        addIdleAnimation(direction, animation);
+    }
+    
+    /**
+     * Charge une animation run/walk pour une direction donnée (surcharge pour utiliser les assets de zombie)
+     */
+    @Override
+    protected void loadRunAnimation(Direction direction) {
+        // Les zombies utilisent "walk" au lieu de "run"
+        // Note: "Down" utilise "walk" (minuscule), les autres utilisent "Walk" (majuscule)
+        String action = (direction == Direction.DOWN) ? "walk" : "Walk";
+        String path = buildEnemyAnimationPath(runPathPrefix, direction, action);
+        Animation<TextureRegion> animation = loadAnimation(path);
+        
+        // Stocker la texture pour pouvoir la libérer
+        TextureRegion firstFrame = animation.getKeyFrame(0);
+        if (firstFrame != null && firstFrame.getTexture() != null) {
+            textures.add(firstFrame.getTexture());
+        }
+        
+        addRunAnimation(direction, animation);
+    }
+    
+    /**
+     * Construit le chemin vers l'animation d'ennemi selon la direction
+     */
+    private String buildEnemyAnimationPath(String prefix, Direction direction, String action) {
+        String directionName = getEnemyDirectionName(direction);
+        // Format: Zombie_Small_Down_Idle-Sheet6.png ou Zombie_Small_Down_walk-Sheet6.png
+        return prefix + spriteName + "_" + directionName + "_" + action + "-Sheet6.png";
+    }
+    
+    /**
+     * Retourne le nom de direction pour les fichiers d'assets d'ennemi
+     */
+    private String getEnemyDirectionName(Direction direction) {
+        switch (direction) {
+            case DOWN:
+                return "Down";
+            case UP:
+                return "Up";
+            case SIDE:
+                return "Side";
+            case SIDE_LEFT:
+                return "Side-left";
+            default:
+                return "Down";
+        }
     }
     
     /**
