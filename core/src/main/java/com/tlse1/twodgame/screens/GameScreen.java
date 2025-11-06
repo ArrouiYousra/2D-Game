@@ -4,24 +4,33 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.tlse1.twodgame.TwoDGame;
-import com.tlse1.twodgame.entities.Enemy;
 import com.tlse1.twodgame.entities.Player;
-
-import java.util.ArrayList;
-import java.util.List;
+import com.tlse1.twodgame.managers.RoomManager;
+import com.tlse1.twodgame.rooms.Room;
+import com.tlse1.twodgame.utils.Difficulty;
+import com.tlse1.twodgame.utils.RoomTransition;
 
 /**
  * Écran de jeu principal.
- * Contient la logique du jeu avec le joueur et les ennemis.
+ * Contient la logique du jeu avec le joueur, les salles et les ennemis.
  */
 public class GameScreen implements Screen {
     
     private TwoDGame game;
     private SpriteBatch batch;
+    private OrthographicCamera camera;
     private Player player;
-    private List<Enemy> enemies;
+    private RoomManager roomManager;
+    private RoomTransition transition;
+    
+    // Difficulté (par défaut MEDIUM, pourra être sélectionnée plus tard)
+    private Difficulty difficulty = Difficulty.MEDIUM;
+    
+    // État de transition
+    private boolean isTransitioning;
     
     public GameScreen(TwoDGame game) {
         this.game = game;
@@ -31,7 +40,12 @@ public class GameScreen implements Screen {
     public void show() {
         batch = new SpriteBatch();
         
-        // Créer le joueur au centre de l'écran
+        // Initialiser la caméra
+        camera = new OrthographicCamera();
+        camera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        camera.update();
+        
+        // Créer le joueur
         float startX = 320f;
         float startY = 240f;
         float speed = 150f;
@@ -39,21 +53,13 @@ public class GameScreen implements Screen {
         
         player = new Player(startX, startY, speed, maxHealth);
         
-        // Créer des ennemis
-        enemies = new ArrayList<>();
-        createEnemies();
-    }
-    
-    /**
-     * Crée des ennemis à différentes positions sur l'écran
-     */
-    private void createEnemies() {
-        float enemySpeed = 80f;
-        int enemyHealth = 50;
+        // Créer le gestionnaire de salles
+        roomManager = new RoomManager(difficulty, player);
+        roomManager.initialize();
         
-        enemies.add(new Enemy(100f, 100f, enemySpeed, enemyHealth, player));
-        enemies.add(new Enemy(540f, 100f, enemySpeed, enemyHealth, player));
-        enemies.add(new Enemy(320f, 380f, enemySpeed, enemyHealth, player));
+        // Créer le système de transition
+        transition = new RoomTransition();
+        isTransitioning = false;
     }
     
     @Override
@@ -64,29 +70,112 @@ public class GameScreen implements Screen {
             return;
         }
         
-        // Mettre à jour le joueur
-        player.update(delta);
-        
-        // Mettre à jour tous les ennemis
-        for (Enemy enemy : enemies) {
-            if (enemy.isActive() && enemy.isAlive()) {
-                enemy.update(delta);
+        // Si on est en transition, gérer la transition
+        if (isTransitioning) {
+            boolean transitionFinished = transition.update(delta);
+            if (transitionFinished) {
+                // Transition terminée, changer de salle
+                changeRoom();
+                isTransitioning = false;
+                transition.reset();
             }
+        } else {
+            // Mettre à jour le jeu normalement
+            updateGame(delta);
         }
         
+        // Rendu
+        renderGame();
+        
+        // Dessiner la transition par-dessus si nécessaire
+        if (isTransitioning || transition.isTransitioning()) {
+            transition.render();
+        }
+    }
+    
+    /**
+     * Met à jour la logique du jeu
+     */
+    private void updateGame(float delta) {
+        // Mettre à jour la salle actuelle (pour les animations)
+        roomManager.update(delta);
+        
+        // Ne pas mettre à jour le joueur pendant la transition
+        if (!isTransitioning) {
+            // Mettre à jour le joueur
+            player.update(delta);
+            
+            // Vérifier les collisions avec les portes
+            Room currentRoom = roomManager.getCurrentRoom();
+            if (currentRoom != null) {
+                // Vérifier collision avec la porte de sortie
+                if (currentRoom.playerCollidesWithExitDoor(player)) {
+                    if (!isTransitioning) {
+                        startRoomTransition();
+                    }
+                }
+                
+                // Limiter le joueur dans les bounds de la salle
+                player.clampToBounds(currentRoom.getWidth(), currentRoom.getHeight());
+            } else {
+                player.clampToBounds(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+            }
+        }
+    }
+    
+    /**
+     * Démarre une transition entre salles
+     */
+    private void startRoomTransition() {
+        isTransitioning = true;
+        transition.startTransition();
+    }
+    
+    /**
+     * Change de salle après la transition
+     */
+    private void changeRoom() {
+        if (roomManager.isLastRoom()) {
+            // Dernière salle - aller vers la salle de victoire (à implémenter plus tard)
+            // Pour l'instant, retourner au menu
+            game.setScreen(new MenuScreen(game));
+            return;
+        }
+        
+        // Passer à la salle suivante
+        boolean hasNextRoom = roomManager.nextRoom();
+        if (!hasNextRoom) {
+            // Plus de salles, retourner au menu
+            game.setScreen(new MenuScreen(game));
+            return;
+        }
+        
+        // Téléporter le joueur à la position de spawn de la nouvelle salle
+        Room newRoom = roomManager.getCurrentRoom();
+        if (newRoom != null) {
+            player.setX(newRoom.getPlayerSpawnX());
+            player.setY(newRoom.getPlayerSpawnY());
+        }
+    }
+    
+    /**
+     * Dessine tous les éléments du jeu
+     */
+    private void renderGame() {
         // Nettoyer l'écran
         Gdx.gl.glClearColor(0.2f, 0.2f, 0.2f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
         
-        // Dessiner le joueur et les ennemis
-        batch.begin();
-        player.render(batch);
+        // Mettre à jour la caméra
+        camera.update();
+        batch.setProjectionMatrix(camera.combined);
         
-        for (Enemy enemy : enemies) {
-            if (enemy.isActive() && enemy.isAlive()) {
-                enemy.render(batch);
-            }
-        }
+        // Dessiner la salle (portes, ennemis, obstacles)
+        batch.begin();
+        roomManager.render(batch);
+        
+        // Dessiner le joueur
+        player.render(batch);
         
         batch.end();
     }
@@ -119,18 +208,23 @@ public class GameScreen implements Screen {
             player.dispose();
         }
         
-        if (enemies != null) {
-            for (Enemy enemy : enemies) {
-                if (enemy != null) {
-                    enemy.dispose();
-                }
-            }
-            enemies.clear();
+        if (roomManager != null) {
+            roomManager.dispose();
+        }
+        
+        if (transition != null) {
+            transition.dispose();
         }
         
         if (batch != null) {
             batch.dispose();
         }
     }
+    
+    /**
+     * Définit la difficulté du jeu
+     */
+    public void setDifficulty(Difficulty difficulty) {
+        this.difficulty = difficulty;
+    }
 }
-
