@@ -1,0 +1,25 @@
+{
+  "screens": {
+    "emptyWithX": "sprite1",
+    "withoutButtons": "sprite2",
+    "withButtons": "sprite3"
+  },
+  "buttons": {
+    "closeX": "sprite4",
+    "save": "sprite32",
+    "decline": "sprite32",
+    "fullscreen": "sprite5",
+    "windowMode": "sprite6",
+    "language": "sprite7"
+  },
+  "icons": {
+    "sound": "sprite17",
+    "music": "sprite17",
+    "arrowUp": "sprite61",
+    "arrowDown": "sprite62",
+    "arrowLeft": "sprite63",
+    "arrowRight": "sprite64"
+  },
+  "note": "Les noms de sprites sont des exemples. Vous devrez identifier visuellement quels sprites correspondent à quels éléments et mettre à jour ce fichier."
+}
+
