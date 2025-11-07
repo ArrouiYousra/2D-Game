@@ -19,6 +19,7 @@ public abstract class AnimatedEntity extends Entity {
     // Animations par direction (pour chaque type d'animation)
     protected Map<Direction, Animation<TextureRegion>> idleAnimations;
     protected Map<Direction, Animation<TextureRegion>> runAnimations;
+    protected Map<Direction, Animation<TextureRegion>> shootAnimations; // Animations de tir
     
     // Animation actuellement affichée
     protected Animation<TextureRegion> currentAnimation;
@@ -31,6 +32,10 @@ public abstract class AnimatedEntity extends Entity {
     
     // État de mouvement
     protected boolean isMoving;
+    
+    // État de tir
+    protected boolean isShooting;
+    protected float shootStateTime; // Temps pour l'animation de tir
     
     // Échelle pour le rendu
     protected float scale;
@@ -47,9 +52,12 @@ public abstract class AnimatedEntity extends Entity {
         super();
         this.idleAnimations = new HashMap<>();
         this.runAnimations = new HashMap<>();
+        this.shootAnimations = new HashMap<>();
         this.currentDirection = Direction.DOWN;
         this.isMoving = false;
+        this.isShooting = false;
         this.stateTime = 0f;
+        this.shootStateTime = 0f;
         this.scale = 4f;
     }
     
@@ -60,9 +68,12 @@ public abstract class AnimatedEntity extends Entity {
         super(x, y);
         this.idleAnimations = new HashMap<>();
         this.runAnimations = new HashMap<>();
+        this.shootAnimations = new HashMap<>();
         this.currentDirection = Direction.DOWN;
         this.isMoving = false;
+        this.isShooting = false;
         this.stateTime = 0f;
+        this.shootStateTime = 0f;
         this.scale = 4f;
     }
     
@@ -73,9 +84,12 @@ public abstract class AnimatedEntity extends Entity {
         super(x, y, speed, width, height);
         this.idleAnimations = new HashMap<>();
         this.runAnimations = new HashMap<>();
+        this.shootAnimations = new HashMap<>();
         this.currentDirection = Direction.DOWN;
         this.isMoving = false;
+        this.isShooting = false;
         this.stateTime = 0f;
+        this.shootStateTime = 0f;
         this.scale = 4f;
     }
     
@@ -90,23 +104,29 @@ public abstract class AnimatedEntity extends Entity {
      * @return L'animation créée
      */
     protected Animation<TextureRegion> loadAnimation(String path, int cols, int rows, float frameDuration) {
-        Texture texture = new Texture(Gdx.files.internal(path));
-        texture.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
-        
-        int frameW = texture.getWidth() / cols;
-        int frameH = texture.getHeight() / rows;
-        
-        TextureRegion[][] grid = TextureRegion.split(texture, frameW, frameH);
-        
-        TextureRegion[] frames = new TextureRegion[cols * rows];
-        int i = 0;
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < cols; c++) {
-                frames[i++] = grid[r][c];
+        try {
+            Texture texture = new Texture(Gdx.files.internal(path));
+            texture.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
+            
+            int frameW = texture.getWidth() / cols;
+            int frameH = texture.getHeight() / rows;
+            
+            TextureRegion[][] grid = TextureRegion.split(texture, frameW, frameH);
+            
+            TextureRegion[] frames = new TextureRegion[cols * rows];
+            int i = 0;
+            for (int r = 0; r < rows; r++) {
+                for (int c = 0; c < cols; c++) {
+                    frames[i++] = grid[r][c];
+                }
             }
+            
+            return new Animation<>(frameDuration, frames);
+        } catch (Exception e) {
+            Gdx.app.error("AnimatedEntity", "Erreur lors du chargement de l'animation: " + path, e);
+            // Retourner une animation vide pour éviter un crash
+            return new Animation<>(frameDuration, new TextureRegion[0]);
         }
-        
-        return new Animation<>(frameDuration, frames);
     }
     
     /**
@@ -131,23 +151,73 @@ public abstract class AnimatedEntity extends Entity {
     }
     
     /**
-     * Met à jour l'animation actuelle selon l'état (idle/run) et la direction.
+     * Ajoute une animation shoot pour une direction donnée
+     */
+    protected void addShootAnimation(Direction direction, Animation<TextureRegion> animation) {
+        shootAnimations.put(direction, animation);
+    }
+    
+    /**
+     * Met à jour l'animation actuelle selon l'état (idle/run/shoot) et la direction.
      * Cette méthode doit être appelée dans update() pour changer l'animation si nécessaire.
      */
     protected void updateAnimation() {
-        Map<Direction, Animation<TextureRegion>> animations = isMoving ? runAnimations : idleAnimations;
+        Map<Direction, Animation<TextureRegion>> animations;
+        
+        // Priorité : tir > mouvement > idle
+        if (isShooting && !shootAnimations.isEmpty()) {
+            animations = shootAnimations;
+        } else if (isMoving) {
+            animations = runAnimations;
+        } else {
+            animations = idleAnimations;
+        }
+        
         Animation<TextureRegion> newAnimation = animations.get(currentDirection);
+        
+        // Si l'animation pour cette direction n'existe pas, logger un avertissement
+        if (newAnimation == null) {
+            Gdx.app.debug("AnimatedEntity", String.format("Animation manquante pour direction: %s, isMoving: %s, isShooting: %s", 
+                currentDirection, isMoving, isShooting));
+            
+            // Essayer de trouver une animation par défaut dans cette map
+            if (!animations.isEmpty()) {
+                newAnimation = animations.values().iterator().next();
+                Gdx.app.debug("AnimatedEntity", "Utilisation d'une animation par défaut");
+            } else {
+                // Si cette map est vide, essayer les autres maps
+                if (animations == shootAnimations) {
+                    if (!runAnimations.isEmpty()) {
+                        newAnimation = runAnimations.values().iterator().next();
+                    } else if (!idleAnimations.isEmpty()) {
+                        newAnimation = idleAnimations.values().iterator().next();
+                    }
+                } else if (animations == runAnimations) {
+                    if (!idleAnimations.isEmpty()) {
+                        newAnimation = idleAnimations.values().iterator().next();
+                    }
+                }
+            }
+        }
         
         // Changer d'animation seulement si nécessaire
         if (newAnimation != null && newAnimation != currentAnimation) {
             currentAnimation = newAnimation;
-            // Optionnel : réinitialiser le stateTime pour recommencer l'animation
-            // stateTime = 0f;
+            // Si on commence une animation de tir, réinitialiser le temps
+            if (isShooting) {
+                shootStateTime = 0f;
+            }
         }
         
         // Si aucune animation n'est définie, essayer de trouver une animation par défaut
         if (currentAnimation == null && !animations.isEmpty()) {
             currentAnimation = animations.values().iterator().next();
+            Gdx.app.log("AnimatedEntity", "currentAnimation était null, utilisation d'une animation par défaut");
+        }
+        
+        // Dernière vérification : si toujours null, c'est un problème grave
+        if (currentAnimation == null) {
+            Gdx.app.error("AnimatedEntity", "ERREUR: currentAnimation est null ! Le personnage ne sera pas rendu.");
         }
     }
     
@@ -160,6 +230,23 @@ public abstract class AnimatedEntity extends Entity {
         // Mettre à jour le temps d'animation
         stateTime += deltaTime;
         
+        // Si on est en train de tirer, mettre à jour le temps de tir
+        if (isShooting) {
+            shootStateTime += deltaTime;
+            Animation<TextureRegion> shootAnim = shootAnimations.get(currentDirection);
+            if (shootAnim != null) {
+                // Vérifier si l'animation de tir est terminée
+                if (shootStateTime >= shootAnim.getAnimationDuration()) {
+                    isShooting = false;
+                    shootStateTime = 0f;
+                }
+            } else {
+                // Pas d'animation de tir, arrêter immédiatement
+                isShooting = false;
+                shootStateTime = 0f;
+            }
+        }
+        
         // Mettre à jour l'animation selon l'état
         updateAnimation();
     }
@@ -170,24 +257,38 @@ public abstract class AnimatedEntity extends Entity {
      */
     @Override
     public void render(SpriteBatch batch) {
-        if (currentAnimation == null || !isActive) {
+        if (!isActive) {
+            Gdx.app.debug("AnimatedEntity", "Entité non active, pas de rendu");
             return;
         }
         
-        TextureRegion frame = currentAnimation.getKeyFrame(stateTime, true); // true = boucle
-        
-        if (frame != null) {
-            float renderWidth = frame.getRegionWidth() * scale;
-            float renderHeight = frame.getRegionHeight() * scale;
-            
-            // Mettre à jour les dimensions si elles ne sont pas définies
-            if (width == 0 || height == 0) {
-                width = renderWidth;
-                height = renderHeight;
-            }
-            
-            batch.draw(frame, x, y, renderWidth, renderHeight);
+        if (currentAnimation == null) {
+            Gdx.app.error("AnimatedEntity", "ERREUR: Tentative de rendu avec currentAnimation null !");
+            return;
         }
+        
+        // Utiliser le temps approprié selon l'état
+        float animTime = isShooting ? shootStateTime : stateTime;
+        boolean looping = !isShooting; // Les animations de tir ne bouclent pas
+        
+        TextureRegion frame = currentAnimation.getKeyFrame(animTime, looping);
+        
+        if (frame == null) {
+            Gdx.app.log("AnimatedEntity", String.format("Frame null pour animation, animTime: %.2f, looping: %s, isShooting: %s", 
+                animTime, looping, isShooting));
+            return;
+        }
+        
+        float renderWidth = frame.getRegionWidth() * scale;
+        float renderHeight = frame.getRegionHeight() * scale;
+        
+        // Mettre à jour les dimensions si elles ne sont pas définies
+        if (width == 0 || height == 0) {
+            width = renderWidth;
+            height = renderHeight;
+        }
+        
+        batch.draw(frame, x, y, renderWidth, renderHeight);
     }
     
     /**
@@ -200,6 +301,7 @@ public abstract class AnimatedEntity extends Entity {
         // mais les textures doivent être libérées séparément par les classes filles
         idleAnimations.clear();
         runAnimations.clear();
+        shootAnimations.clear();
         currentAnimation = null;
     }
     

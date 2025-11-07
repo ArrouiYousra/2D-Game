@@ -54,6 +54,7 @@ public class GameScreen implements Screen {
         int maxHealth = 100;
         
         player = new Player(startX, startY, speed, maxHealth);
+        player.setCamera(camera); // Passer la caméra au joueur pour le calcul de direction
         
         // Créer le gestionnaire de salles
         roomManager = new RoomManager(difficulty, player);
