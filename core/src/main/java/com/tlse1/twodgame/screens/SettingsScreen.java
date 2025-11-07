@@ -1,51 +1,39 @@
 package com.tlse1.twodgame.screens;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
-import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
-import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.tlse1.twodgame.TwoDGame;
+import com.tlse1.twodgame.utils.SettingsMapping;
+import com.tlse1.twodgame.utils.TextMapping;
 
 /**
  * Écran des paramètres du jeu.
- * Affiche les options de configuration (à implémenter).
+ * Affiche simplement Settings.png pour commencer.
  */
 public class SettingsScreen implements Screen {
     
     private TwoDGame game;
     private SpriteBatch batch;
     private OrthographicCamera camera;
-    private BitmapFont titleFont;
-    private BitmapFont instructionFont;
+    private SettingsMapping settingsMapping;
+    private TextMapping textMapping;
     
-    // Textures du bouton retour
-    private Texture buttonBackNotPressed;
-    private Texture buttonBackPressed;
-    private boolean isBackButtonPressed = false;
+    // TextureRegion pour le screen à afficher
+    private TextureRegion currentScreen;
     
-    // Textes
-    private String titleText = "PARAMETRES";
-    private String instructionText = "Appuyez sur ESC ou cliquez sur Retour pour revenir au menu";
+    // Texte à afficher (liste de noms de sprites)
+    private String[] textSprites;
     
-    // Layouts pour calculer les tailles
-    private GlyphLayout titleLayout;
-    private GlyphLayout instructionLayout;
-    
-    // Dimensions du bouton
-    private float buttonWidth;
-    private float buttonHeight;
-    
-    // Positions (calculées dynamiquement)
+    // Dimensions de l'écran
     private float screenWidth;
     private float screenHeight;
-    private float titleX, titleY;
-    private float buttonBackX, buttonBackY;
-    private float instructionX, instructionY;
+    
+    // Position et scale du screen
+    private float screenX, screenY, screenScale;
     
     public SettingsScreen(TwoDGame game) {
         this.game = game;
@@ -53,74 +41,43 @@ public class SettingsScreen implements Screen {
         // Initialiser la caméra avec les dimensions initiales
         screenWidth = Gdx.graphics.getWidth();
         screenHeight = Gdx.graphics.getHeight();
+        
         camera = new OrthographicCamera(screenWidth, screenHeight);
         camera.setToOrtho(false, screenWidth, screenHeight);
         camera.update();
         
-        // Initialiser le SpriteBatch avec la caméra
+        // Initialiser le SpriteBatch
         batch = new SpriteBatch();
         
-        // Charger les textures du bouton (utiliser Blank comme bouton retour)
-        loadButtonTextures();
+        // Charger le mapping des sprites depuis le JSON
+        settingsMapping = new SettingsMapping();
+        textMapping = new TextMapping();
         
-        // Créer les polices
-        createFonts();
+        // Commencer avec sprite1 (screen vide avec bouton X)
+        // On remplira petit à petit avec les autres éléments
+        currentScreen = settingsMapping.getScreen("emptyWithX");
+        if (currentScreen == null) {
+            // Si le mapping n'est pas trouvé, essayer directement avec sprite1
+            currentScreen = settingsMapping.getSprite("sprite1");
+        }
         
-        // Initialiser les layouts
-        titleLayout = new GlyphLayout();
-        instructionLayout = new GlyphLayout();
+        if (currentScreen == null) {
+            Gdx.app.error("SettingsScreen", "Impossible de charger le screen vide");
+        } else {
+            Gdx.app.log("SettingsScreen", "Screen vide (sprite1) chargé: " + 
+                currentScreen.getRegionWidth() + "x" + currentScreen.getRegionHeight());
+        }
         
-        // Calculer les positions initiales
-        calculatePositions();
-    }
-    
-    /**
-     * Charge les textures du bouton retour
-     */
-    private void loadButtonTextures() {
-        // Utiliser Blank comme bouton retour (ou créer un bouton personnalisé plus tard)
-        buttonBackNotPressed = new Texture(Gdx.files.internal("PostApocalypse_AssetPack_v1.1.2/UI/Menu/Main Menu/Blank_Not-Pressed.png"));
-        buttonBackPressed = new Texture(Gdx.files.internal("PostApocalypse_AssetPack_v1.1.2/UI/Menu/Main Menu/Blank_Pressed.png"));
+        // Pour tester : créer le texte "SETTINGS"
+        // Note: Il faudra identifier visuellement quels sprites correspondent à quelles lettres
+        // Pour l'instant, on utilise des sprites arbitraires pour tester
+        // Vous devrez ajuster ces numéros selon ce que vous voyez dans Text1.png
+        textSprites = createTextSprites("SETTINGS");
         
-        // Définir le filtre pour éviter le flou lors du redimensionnement
-        buttonBackNotPressed.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
-        buttonBackPressed.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
-        
-        // Utiliser les dimensions réelles de la texture
-        buttonWidth = buttonBackNotPressed.getWidth();
-        buttonHeight = buttonBackNotPressed.getHeight();
-    }
-    
-    /**
-     * Crée les polices pour l'écran
-     */
-    private void createFonts() {
-        titleFont = new BitmapFont();
-        titleFont.getData().setScale(2.5f); // Taille 2.5x pour le titre
-        
-        instructionFont = new BitmapFont();
-        instructionFont.getData().setScale(1f); // Taille normale pour les instructions
-    }
-    
-    /**
-     * Calcule les positions de tous les éléments pour les centrer
-     */
-    private void calculatePositions() {
-        // Mettre à jour les layouts avec les nouvelles dimensions
-        titleLayout.setText(titleFont, titleText);
-        instructionLayout.setText(instructionFont, instructionText);
-        
-        // Centrer le titre en haut
-        titleX = (screenWidth - titleLayout.width) / 2f;
-        titleY = screenHeight * 0.75f;
-        
-        // Positionner le bouton retour en bas
-        buttonBackX = (screenWidth - buttonWidth) / 2f;
-        buttonBackY = screenHeight * 0.2f;
-        
-        // Centrer les instructions sous le bouton
-        instructionX = (screenWidth - instructionLayout.width) / 2f;
-        instructionY = buttonBackY - buttonHeight / 2f - 30f;
+        // Initialiser les positions (sera calculé dans render)
+        screenX = 0;
+        screenY = 0;
+        screenScale = 1f;
     }
     
     @Override
@@ -134,46 +91,40 @@ public class SettingsScreen implements Screen {
         camera.update();
         
         // Nettoyer l'écran
-        Gdx.gl.glClearColor(0.1f, 0.1f, 0.2f, 1); // fond bleu foncé
+        Gdx.gl.glClearColor(0.1f, 0.1f, 0.2f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
         
         // Définir les matrices de projection pour utiliser la caméra
         batch.setProjectionMatrix(camera.combined);
         
-        // Dessiner les éléments
+        // Dessiner le screen des settings
         batch.begin();
         
-        // Titre
-        titleFont.draw(batch, titleLayout, titleX, titleY);
-        
-        // Dessiner le bouton retour (utiliser la texture pressée ou non pressée)
-        Texture currentBackTexture = isBackButtonPressed ? buttonBackPressed : buttonBackNotPressed;
-        batch.draw(currentBackTexture, buttonBackX, buttonBackY, buttonWidth, buttonHeight);
-        
-        // Instructions
-        instructionFont.draw(batch, instructionLayout, instructionX, instructionY);
+        if (currentScreen != null) {
+            // Calculer le scale pour que le screen s'adapte à l'écran
+            float scaleX = screenWidth / currentScreen.getRegionWidth();
+            float scaleY = screenHeight / currentScreen.getRegionHeight();
+            screenScale = Math.min(scaleX, scaleY); // Garder les proportions
+            
+            float drawWidth = currentScreen.getRegionWidth() * screenScale;
+            float drawHeight = currentScreen.getRegionHeight() * screenScale;
+            screenX = (screenWidth - drawWidth) / 2f; // Centrer horizontalement
+            screenY = (screenHeight - drawHeight) / 2f; // Centrer verticalement
+            
+            // Dessiner le screen
+            batch.draw(currentScreen, screenX, screenY, drawWidth, drawHeight);
+            
+            // Calculer la position du texte pour le centrer sur la partie verte
+            // La partie verte est en haut du screen (position zéro)
+            float textY = screenY + drawHeight * 0.93f; // Position verticale en haut sur la partie verte
+            float textWidth = calculateTextWidth(textSprites);
+            float textX = screenX + (drawWidth - textWidth) / 2f; // Centrer horizontalement
+            
+            // Dessiner le texte par-dessus sur la partie verte
+            drawText(textSprites, textX, textY);
+        }
         
         batch.end();
-        
-        // Détecter la touche ESC pour revenir au menu
-        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-            game.setScreen(new MenuScreen(game));
-        }
-        
-        // Détecter le survol et le clic sur le bouton retour
-        float touchX = Gdx.input.getX();
-        float touchY = Gdx.graphics.getHeight() - Gdx.input.getY();
-        
-        boolean isMouseOverBack = (touchX >= buttonBackX && touchX <= buttonBackX + buttonWidth &&
-                                  touchY >= buttonBackY && touchY <= buttonBackY + buttonHeight);
-        
-        // Mettre à jour l'état du bouton (pressé si survolé)
-        isBackButtonPressed = isMouseOverBack;
-        
-        // Détecter le clic sur le bouton retour
-        if (Gdx.input.justTouched() && isMouseOverBack) {
-            game.setScreen(new MenuScreen(game));
-        }
     }
     
     @Override
@@ -185,9 +136,6 @@ public class SettingsScreen implements Screen {
         // Mettre à jour la caméra avec les nouvelles dimensions
         camera.setToOrtho(false, screenWidth, screenHeight);
         camera.update();
-        
-        // Recalculer les positions des éléments
-        calculatePositions();
     }
     
     @Override
@@ -205,22 +153,104 @@ public class SettingsScreen implements Screen {
         // Appelé quand l'écran devient invisible
     }
     
+    /**
+     * Crée un tableau de noms de sprites pour un texte donné.
+     * Pour l'instant, c'est un mapping basique - vous devrez identifier visuellement
+     * quels sprites correspondent à quelles lettres dans Text1.png.
+     */
+    private String[] createTextSprites(String text) {
+        // Mapping temporaire : A=1, B=2, C=3, etc. (à ajuster selon Text1.png)
+        // Pour "SETTINGS" : S=19, E=5, T=20, T=20, I=9, N=14, G=7, S=19
+        // Mais il faut identifier visuellement les bons sprites !
+        
+        // Pour tester, on utilise des sprites arbitraires
+        // Vous devrez créer un vrai mapping lettre -> sprite après avoir identifié visuellement
+        String[] sprites = new String[text.length()];
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            // Mapping temporaire basé sur l'ordre alphabétique (probablement incorrect)
+            // À remplacer par un vrai mapping après identification visuelle
+            int spriteIndex = (c - 'A') + 1;
+            if (spriteIndex >= 1 && spriteIndex <= 350) {
+                sprites[i] = "sprite" + spriteIndex;
+            } else {
+                sprites[i] = null; // Caractère non supporté
+            }
+        }
+        return sprites;
+    }
+    
+    /**
+     * Calcule la largeur totale d'un texte (pour le centrer)
+     */
+    private float calculateTextWidth(String[] spriteNames) {
+        float totalWidth = 0f;
+        float letterSpacing = 2f * screenScale;
+        
+        for (String spriteName : spriteNames) {
+            if (spriteName == null) {
+                totalWidth += 10 * screenScale;
+                continue;
+            }
+            
+            TextureRegion letterSprite = textMapping.getSprite(spriteName);
+            if (letterSprite != null) {
+                float letterWidth = letterSprite.getRegionWidth() * screenScale;
+                totalWidth += letterWidth + letterSpacing;
+            } else {
+                totalWidth += 10 * screenScale;
+            }
+        }
+        
+        // Enlever le dernier espacement
+        if (spriteNames.length > 0) {
+            totalWidth -= letterSpacing;
+        }
+        
+        return totalWidth;
+    }
+    
+    /**
+     * Dessine un texte composé de sprites à une position donnée
+     */
+    private void drawText(String[] spriteNames, float startX, float startY) {
+        float currentX = startX;
+        float letterSpacing = 2f * screenScale; // Espacement entre les lettres
+        
+        for (String spriteName : spriteNames) {
+            if (spriteName == null) {
+                currentX += 10 * screenScale; // Espace pour caractère non supporté
+                continue;
+            }
+            
+            TextureRegion letterSprite = textMapping.getSprite(spriteName);
+            if (letterSprite != null) {
+                // Calculer la taille de la lettre (scale proportionnel au screen)
+                float letterWidth = letterSprite.getRegionWidth() * screenScale;
+                float letterHeight = letterSprite.getRegionHeight() * screenScale;
+                
+                // Dessiner la lettre
+                batch.draw(letterSprite, currentX, startY, letterWidth, letterHeight);
+                
+                // Avancer la position pour la prochaine lettre
+                currentX += letterWidth + letterSpacing;
+            } else {
+                // Si le sprite n'existe pas, avancer quand même
+                currentX += 10 * screenScale;
+            }
+        }
+    }
+    
     @Override
     public void dispose() {
         if (batch != null) {
             batch.dispose();
         }
-        if (buttonBackNotPressed != null) {
-            buttonBackNotPressed.dispose();
+        if (settingsMapping != null) {
+            settingsMapping.dispose();
         }
-        if (buttonBackPressed != null) {
-            buttonBackPressed.dispose();
-        }
-        if (titleFont != null) {
-            titleFont.dispose();
-        }
-        if (instructionFont != null) {
-            instructionFont.dispose();
+        if (textMapping != null) {
+            textMapping.dispose();
         }
     }
 }

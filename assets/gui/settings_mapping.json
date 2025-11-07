@@ -1,0 +1,117 @@
+{
+  "texture": "gui/PNG/Settings.png",
+  "textureWidth": 336,
+  "textureHeight": 256,
+  
+  "screens": {
+    "emptyWithX": {
+      "x": 0,
+      "y": 0,
+      "width": 336,
+      "height": 85,
+      "description": "Screen vide avec bouton X"
+    },
+    "withoutButtons": {
+      "x": 0,
+      "y": 85,
+      "width": 336,
+      "height": 85,
+      "description": "Screen sans les boutons"
+    },
+    "withButtons": {
+      "x": 0,
+      "y": 170,
+      "width": 336,
+      "height": 86,
+      "description": "Screen avec les boutons"
+    }
+  },
+  
+  "buttons": {
+    "save": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0,
+      "description": "Bouton Save - À remplir avec les coordonnées réelles"
+    },
+    "decline": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0,
+      "description": "Bouton Decline - À remplir avec les coordonnées réelles"
+    },
+    "fullscreen": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0,
+      "description": "Bouton Fullscreen - À remplir avec les coordonnées réelles"
+    },
+    "windowMode": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0,
+      "description": "Bouton Window Mode - À remplir avec les coordonnées réelles"
+    },
+    "language": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0,
+      "description": "Bouton Language - À remplir avec les coordonnées réelles"
+    },
+    "closeX": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0,
+      "description": "Bouton X pour fermer - À remplir avec les coordonnées réelles"
+    }
+  },
+  
+  "icons": {
+    "sound": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0,
+      "description": "Icône son - À remplir avec les coordonnées réelles"
+    },
+    "music": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0,
+      "description": "Icône musique - À remplir avec les coordonnées réelles"
+    },
+    "arrowLeft": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0,
+      "description": "Flèche gauche - À remplir avec les coordonnées réelles"
+    },
+    "arrowRight": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0,
+      "description": "Flèche droite - À remplir avec les coordonnées réelles"
+    }
+  },
+  
+  "interactiveElements": {
+    "volumeSlider": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0,
+      "type": "slider",
+      "description": "Curseur de volume - À remplir avec les coordonnées réelles"
+    }
+  }
+}
+

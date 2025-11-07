@@ -23,10 +23,10 @@ public class Weapon {
     }
     
     /**
-     * Constructeur par défaut (GUN)
+     * Constructeur par défaut (SWORD)
      */
     public Weapon() {
-        this.type = WeaponType.GUN;
+        this.type = WeaponType.SWORD;
     }
     
     // Getters et Setters

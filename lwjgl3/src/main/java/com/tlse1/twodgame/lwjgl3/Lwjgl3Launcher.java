@@ -38,7 +38,8 @@ public class Lwjgl3Launcher {
         //// This uses the dependency `com.badlogicgames.gdx:gdx-lwjgl3-angle` to function.
         //// You can choose to remove the following line and the mentioned dependency if you want; they
         //// are not intended for games that use GL30 (which is compatibility with OpenGL ES 3.0).
-        configuration.setOpenGLEmulation(Lwjgl3ApplicationConfiguration.GLEmulation.ANGLE_GLES20, 0, 0);
+        // TEMPORAIRE : Désactivé pour WSL/Linux - peut causer des blocages
+        // configuration.setOpenGLEmulation(Lwjgl3ApplicationConfiguration.GLEmulation.ANGLE_GLES20, 0, 0);
 
         return configuration;
     }

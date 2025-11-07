@@ -56,7 +56,7 @@ public class Player extends Character {
         }
         
         // Utiliser les nouveaux assets avec épée
-        weapon = new Weapon(Weapon.WeaponType.GUN); // On garde WeaponType pour l'instant, mais c'est une épée
+        weapon = new Weapon(Weapon.WeaponType.SWORD); // On garde WeaponType pour l'instant, mais c'est une épée
         hasWeapon = true;
         
         // Configurer les chemins pour les animations avec épée
