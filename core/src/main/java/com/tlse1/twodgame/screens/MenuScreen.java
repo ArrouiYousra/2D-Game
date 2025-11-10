@@ -11,7 +11,6 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.tlse1.twodgame.TwoDGame;
-import com.tlse1.twodgame.screens.GameScreen;
 
 /**
  * Écran de menu principal.
@@ -54,9 +53,7 @@ public class MenuScreen implements Screen {
         // Initialiser la caméra avec les dimensions initiales
         screenWidth = Gdx.graphics.getWidth();
         screenHeight = Gdx.graphics.getHeight();
-        camera = new OrthographicCamera(screenWidth, screenHeight);
-        camera.setToOrtho(false, screenWidth, screenHeight);
-        camera.update();
+        camera = new OrthographicCamera();
         
         // Initialiser le SpriteBatch et ShapeRenderer avec la caméra
         batch = new SpriteBatch();

@@ -1,7 +1,8 @@
-package com.tlse1.twodgame.map;
+package com.tlse1.twodgame.screens;
 
-import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
+import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
@@ -13,24 +14,35 @@ import com.badlogic.gdx.maps.tiled.tiles.StaticTiledMapTile;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.utils.JsonReader;
 import com.badlogic.gdx.utils.JsonValue;
+import com.tlse1.twodgame.TwoDGame;
 
-public class JsonMapLoader extends ApplicationAdapter {
+/**
+ * Écran affichant la TileMap chargée depuis un JSON
+ */
+public class MapScreen implements Screen {
+    
+    private TwoDGame game;
     private OrthographicCamera camera;
     private OrthogonalTiledMapRenderer mapRenderer;
     private TiledMap tiledMap;
     
     private static final String JSON_PATH = "map.json";
     
+    public MapScreen(TwoDGame game) {
+        this.game = game;
+    }
+    
     @Override
-    public void create() {
-        System.out.println("=== DEMARRAGE JsonMapLoader ===");
+    public void show() {
+        System.out.println("=== CHARGEMENT DE LA CARTE ===");
         
-        try {            
+        try {
+            
             // Vérification du JSON
             FileHandle jsonFile = Gdx.files.local(JSON_PATH);
             if (!jsonFile.exists()) {
                 System.err.println("ERREUR: " + JSON_PATH + " introuvable!");
-                Gdx.app.exit();
+                game.setScreen(new MenuScreen(game));
                 return;
             }
             
@@ -46,13 +58,13 @@ public class JsonMapLoader extends ApplicationAdapter {
             int cols = tileset.getInt("columns");
             int rows = tileset.getInt("rows");
             
-            System.out.println("Tileset: " + tilesetPath + " (" + cols + "x" + rows + " tuiles de " + tileW + "x" + tileH + ")");
+            System.out.println("Tileset: " + tilesetPath + " (" + cols + "x" + rows + " tuiles)");
             
             // Chargement tileset
             FileHandle tilesetFile = Gdx.files.internal(tilesetPath);
             if (!tilesetFile.exists()) {
                 System.err.println("ERREUR: Tileset introuvable: " + tilesetPath);
-                Gdx.app.exit();
+                game.setScreen(new MenuScreen(game));
                 return;
             }
             
@@ -66,6 +78,14 @@ public class JsonMapLoader extends ApplicationAdapter {
             
             System.out.println("Carte: " + mapW + "x" + mapH);
             
+            // Ajuster la caméra à la taille de la carte
+            float viewWidth = Math.min(mapW * tileW, 800);
+            float viewHeight = Math.min(mapH * tileH, 600);
+            camera.viewportWidth = viewWidth;
+            camera.viewportHeight = viewHeight;
+            camera.position.set(viewWidth / 2f, viewHeight / 2f, 0);
+            camera.update();
+            
             // Création TiledMap
             tiledMap = new TiledMap();
             
@@ -76,29 +96,22 @@ public class JsonMapLoader extends ApplicationAdapter {
                 System.out.println("Chargement layer: " + layerName);
                 
                 TiledMapTileLayer layer = new TiledMapTileLayer(mapW, mapH, tileW, tileH);
-                
                 JsonValue dataArray = layerJson.get("data");
                 int y = mapH - 1;
                 
                 for (JsonValue rowJson : dataArray) {
                     int x = 0;
                     for (JsonValue cellJson : rowJson) {
-                        int tileId = cellJson.asInt();
+                        int tileId = cellJson.asInt() - 1; // Décrémentation
                         
-                        // Décrémentation : les valeurs du JSON commencent à 1, mais les indices du tileset à 0
-                        tileId = tileId - 1;
-                        
-                        // Si tileId < 0 (c'était 0 dans le JSON), c'est une case vide/transparente
                         if (tileId < 0) {
                             x++;
                             continue;
                         }
                         
-                        // Calcul position dans tileset
                         int tileRow = tileId / cols;
                         int tileCol = tileId % cols;
                         
-                        // Vérification limites
                         if (tileRow >= 0 && tileRow < rows && tileCol >= 0 && tileCol < cols) {
                             TextureRegion region = allTiles[tileRow][tileCol];
                             StaticTiledMapTile tile = new StaticTiledMapTile(region);
@@ -106,8 +119,6 @@ public class JsonMapLoader extends ApplicationAdapter {
                             TiledMapTileLayer.Cell cell = new TiledMapTileLayer.Cell();
                             cell.setTile(tile);
                             layer.setCell(x, y, cell);
-                        } else {
-                            System.err.println("Tuile " + (tileId + 1) + " hors limites à (" + x + "," + y + ")");
                         }
                         
                         x++;
@@ -116,29 +127,54 @@ public class JsonMapLoader extends ApplicationAdapter {
                 }
                 
                 tiledMap.getLayers().add(layer);
-                System.out.println("Layer '" + layerName + "' chargé");
             }
             
             mapRenderer = new OrthogonalTiledMapRenderer(tiledMap);
-            System.out.println("=== CARTE CHARGEE ===");
+            System.out.println("=== CARTE CHARGÉE ===");
             
         } catch (Exception e) {
-            System.err.println("ERREUR FATALE:");
+            System.err.println("ERREUR lors du chargement:");
             e.printStackTrace();
-            Gdx.app.exit();
+            game.setScreen(new MenuScreen(game));
         }
     }
     
     @Override
-    public void render() {
+    public void render(float delta) {
+        // Retour au menu avec Échap
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            game.setScreen(new MenuScreen(game));
+            return;
+        }
+        
+        // Nettoyage écran
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.1f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
         
+        // Rendu de la carte
         if (mapRenderer != null) {
             camera.update();
             mapRenderer.setView(camera);
             mapRenderer.render();
         }
+    }
+    
+    @Override
+    public void resize(int width, int height) {
+        camera.viewportWidth = width;
+        camera.viewportHeight = height;
+        camera.update();
+    }
+    
+    @Override
+    public void pause() {}
+    
+    @Override
+    public void resume() {}
+    
+    @Override
+    public void hide() {
+        dispose();
     }
     
     @Override
