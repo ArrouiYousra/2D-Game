@@ -19,11 +19,11 @@ public class TiledMapGame extends ApplicationAdapter {
     private TiledMap tiledMap;
     
     // Configuration - AJUSTEZ CES VALEURS SELON VOTRE TILESET
-    private static final String TILESET_PATH = "tileset.png";
+    private static final String TILESET_PATH = "Tiled_files/walls_floor.png";
     private static final int TILE_WIDTH = 16;   // Largeur d'une tuile
     private static final int TILE_HEIGHT = 16;  // Hauteur d'une tuile
-    private static final int MAP_WIDTH = 20;    // Largeur de la carte en tuiles
-    private static final int MAP_HEIGHT = 15;   // Hauteur de la carte en tuiles
+    private static final int MAP_WIDTH = 50;    // Largeur de la carte en tuiles
+    private static final int MAP_HEIGHT = 40;   // Hauteur de la carte en tuiles
     private static final String JSON_OUTPUT = "map.json";
     
     @Override
