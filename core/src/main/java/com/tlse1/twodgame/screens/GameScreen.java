@@ -16,6 +16,7 @@ import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.utils.JsonReader;
 import com.badlogic.gdx.utils.JsonValue;
 import com.tlse1.twodgame.TwoDGame;
+import com.tlse1.twodgame.entities.Archers;
 import com.tlse1.twodgame.entities.Enemy;
 import com.tlse1.twodgame.entities.Player;
 import com.badlogic.gdx.math.Rectangle;
@@ -34,6 +35,7 @@ public class GameScreen implements Screen {
     private SpriteBatch batch;
     private Player player;
     private List<Enemy> enemies;
+    private List<Archers> archers;
     
     // TileMap
     private OrthographicCamera camera;
@@ -71,6 +73,9 @@ public class GameScreen implements Screen {
         
         // Créer des ennemis
         enemies = new ArrayList<>();
+        createEnemies();
+
+        archers = new ArrayList<>();
         createEnemies();
     }
     
@@ -192,6 +197,20 @@ public class GameScreen implements Screen {
         Enemy enemy3 = new Enemy(90f, 110f, enemySpeed, enemyHealth, player);
         enemy3.setScale(1f);
         enemies.add(enemy3);
+
+        Archers archer1 = new Archers(35f, 150f, enemySpeed, enemyHealth, player);
+        archer1.setScale(1f);  // Échelle 1:1
+        System.out.println("ARCHER CREE");
+        archers.add(archer1);
+        System.out.println("ARCHER CREE2");
+        
+        Archers archer2 = new Archers(150f, 30f, enemySpeed, enemyHealth, player);
+        archer2.setScale(1f);
+        archers.add(archer2);
+        
+        Archers archer3 = new Archers(90f, 110f, enemySpeed, enemyHealth, player);
+        archer3.setScale(1f);
+        archers.add(archer3);
     }
     
     @Override
@@ -221,6 +240,12 @@ public class GameScreen implements Screen {
                 enemy.update(delta);
             }
         }
+
+        for (Archers archers : archers) {
+            if (archers.isActive() && archers.isAlive()) {
+                archers.update(delta);
+            }
+        }
         
         // Nettoyer l'écran
         Gdx.gl.glClearColor(0.2f, 0.2f, 0.2f, 1);
@@ -240,6 +265,12 @@ public class GameScreen implements Screen {
         for (Enemy enemy : enemies) {
             if (enemy.isActive() && enemy.isAlive()) {
                 enemy.render(batch);
+            }
+        }
+
+        for (Archers archers : archers) {
+            if (archers.isActive() && archers.isAlive()) {
+                archers.render(batch);
             }
         }
         
@@ -283,6 +314,15 @@ public class GameScreen implements Screen {
                 }
             }
             enemies.clear();
+        }
+
+        if (archers != null) {
+            for (Archers archers : archers) {
+                if (archers != null) {
+                    archers.dispose();
+                }
+            }
+            archers.clear();
         }
         
         // Libérer la TileMap
