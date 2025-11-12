@@ -51,8 +51,6 @@ public class MenuScreen implements Screen {
         this.game = game;
         
         // Initialiser la caméra avec les dimensions initiales
-        screenWidth = Gdx.graphics.getWidth();
-        screenHeight = Gdx.graphics.getHeight();
         camera = new OrthographicCamera();
         
         // Initialiser le SpriteBatch et ShapeRenderer avec la caméra

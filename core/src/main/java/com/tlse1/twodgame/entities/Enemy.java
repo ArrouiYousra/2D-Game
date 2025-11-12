@@ -13,7 +13,7 @@ public class Enemy extends Character {
     private Player target;
     
     // Distance de détection (si le joueur est trop loin, l'ennemi ne bouge pas)
-    private float detectionRange = 300f;
+    private float detectionRange = 1f;
     
     /**
      * Constructeur par défaut

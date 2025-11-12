@@ -72,6 +72,7 @@ public class JsonMapLoader extends ApplicationAdapter {
             // Lecture layers
             JsonValue layers = mapInfo.get("layers");
             for (JsonValue layerJson : layers) {
+                if (layerName == "collision") continue;
                 String layerName = layerJson.getString("name");
                 System.out.println("Chargement layer: " + layerName);
                 
