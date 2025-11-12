@@ -7,7 +7,7 @@ import com.tlse1.twodgame.utils.Direction;
  * Classe représentant un ennemi.
  * Implémente une IA simple qui suit le joueur.
  */
-public class Enemy extends Character {
+public class Archers extends Character {
     
     // Référence au joueur à suivre
     private Player target;
@@ -19,40 +19,40 @@ public class Enemy extends Character {
     /**
      * Constructeur par défaut
      */
-    public Enemy() {
+    public Archers() {
         super();
-        initializeEnemy();
+        initializeArchers();
     }
     
     /**
      * Constructeur avec position initiale
      */
-    public Enemy(float x, float y) {
+    public Archers(float x, float y) {
         super(x, y);
-        initializeEnemy();
+        initializeArchers();
     }
     
     /**
      * Constructeur complet
      */
-    public Enemy(float x, float y, float speed, int maxHealth) {
+    public Archers(float x, float y, float speed, int maxHealth) {
         super(x, y, speed, maxHealth);
-        initializeEnemy();
+        initializeArchers();
     }
     
     /**
      * Constructeur avec cible (joueur)
      */
-    public Enemy(float x, float y, float speed, int maxHealth, Player target) {
+    public Archers(float x, float y, float speed, int maxHealth, Player target) {
         super(x, y, speed, maxHealth);
         this.target = target;
-        initializeEnemy();
+        initializeArchers();
     }
     
     /**
      * Initialise l'ennemi (appelé dans les constructeurs)
      */
-    private void initializeEnemy() {
+    private void initializeArchers() {
         // Vitesse par défaut de l'ennemi
         if (speed == 0) {
             speed = 80f; // pixels par seconde (plus lent que le joueur)
@@ -78,7 +78,20 @@ public class Enemy extends Character {
             float distance = (float) Math.sqrt(dx * dx + dy * dy);
             
             // Si le joueur est à portée, le suivre
-            if (distance <= detectionRange ) { // 5f = distance minimale pour éviter les tremblements
+            if (distance < securityRange && distance > 10f) { // 5f = distance minimale pour éviter les tremblements
+                isMoving = true;
+                
+                // Normaliser la direction pour un mouvement uniforme
+                dx /= distance;
+                dy /= distance;
+                
+                // Déplacer l'ennemi vers le joueur
+                x -= (dx * speed * deltaTime);
+                y -= (dy * speed * deltaTime);
+
+                // Le joueur est très proche, rester immobile
+                isMoving = false;
+            } if (distance <= detectionRange && distance > 5f) { // 5f = distance minimale pour éviter les tremblements
                 isMoving = true;
                 
                 // Normaliser la direction pour un mouvement uniforme
@@ -91,7 +104,7 @@ public class Enemy extends Character {
                 
                 // Déterminer la direction selon le mouvement
                 updateDirection(dx, dy);
-            }  else {
+            } else {
                 // Le joueur est trop loin ou trop proche, rester immobile
                 isMoving = false;
             }

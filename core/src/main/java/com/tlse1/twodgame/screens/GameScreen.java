@@ -43,7 +43,7 @@ public class GameScreen implements Screen {
     private TiledMapTileLayer collisionLayer;
     
     private static final String JSON_PATH = "map.json";
-    private static final String COLLISION_LAYER_NAME = "structures"222;
+    private static final String COLLISION_LAYER_NAME = "structures";
     
     public GameScreen(TwoDGame game) {
         this.game = game;

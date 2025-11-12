@@ -65,7 +65,7 @@ public class MainGame extends ApplicationAdapter {
         }
         
         // Nettoyer l'écran
-        Gdx.gl.glClearColor(0.2f, 0.2f, 0.2f, 1); // fond gris foncé
+        Gdx.gl.glClearColor(200.2f, 0.2f, 0.2f, 1); // fond gris foncé
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
         
         // Dessiner le joueur et les ennemis
