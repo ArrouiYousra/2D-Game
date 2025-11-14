@@ -2,13 +2,17 @@ package com.tlse1.twodgame.entities;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.tlse1.twodgame.Attacks.Attack;
 import com.tlse1.twodgame.utils.Direction;
+import com.tlse1.twodgame.Attacks.MeleeAttack;
+import com.tlse1.twodgame.Attacks.RangedAttack;
+import com.tlse1.twodgame.Attacks.MagicAttack;
 
 /**
  * Classe représentant le joueur contrôlé par le clavier.
  * Gère l'input et le mouvement du personnage joueur.
  */
-public class Player extends Character {
+public class Player extends Character{
     
     /**
      * Constructeur par défaut
@@ -91,6 +95,25 @@ public class Player extends Character {
             y += speed * deltaTime;
             currentDirection = Direction.UP;
             isMoving = true;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.Q)) {
+
+            Attack melee = new MeleeAttack(50, 2, 1.0f);
+            Attack ranged = new RangedAttack(40, 20, 1.5f);
+            Attack magic = new MagicAttack(60, 15, 2.0f);
+            // Attaque (à implémenter)
+            System.out.println("\n=== Test d'exécution ===");
+            melee.execute("Guerrier", "Ennemi");
+            ranged.execute("Archer", "Ennemi");
+            magic.execute("Mage", "Ennemi");
+        }
+    }
+
+    @Override
+    public void takeDamage(int damage) {
+        health = Math.max(0, health - damage);
+        if (health <= 0) {
+            onDeath();
         }
     }
     
