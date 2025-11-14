@@ -46,6 +46,7 @@ public class Archers extends Character {
     public Archers(float x, float y, float speed, int maxHealth, Player target) {
         super(x, y, speed, maxHealth);
         this.target = target;
+        System.out.println("ARCHER CONSTRUIT");
         initializeArchers();
     }
     
@@ -55,7 +56,7 @@ public class Archers extends Character {
     private void initializeArchers() {
         // Vitesse par défaut de l'ennemi
         if (speed == 0) {
-            speed = 80f; // pixels par seconde (plus lent que le joueur)
+            speed = 50f; // pixels par seconde (plus lent que le joueur)
         }
         
         // Initialiser toutes les animations

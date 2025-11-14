@@ -76,7 +76,7 @@ public class GameScreen implements Screen {
         createEnemies();
 
         archers = new ArrayList<>();
-        createEnemies();
+        createArchers();
     }
     
     /**
@@ -198,19 +198,28 @@ public class GameScreen implements Screen {
         enemy3.setScale(1f);
         enemies.add(enemy3);
 
-        Archers archer1 = new Archers(35f, 150f, enemySpeed, enemyHealth, player);
+    }
+
+
+    private void createArchers() {
+
+        float archerSpeed = 10f;  // Réduit pour s'adapter à la nouvelle échelle
+        int archerHealth = 60;
+        
+        Archers archer1 = new Archers(35f, 150f, archerSpeed, archerHealth, player);
         archer1.setScale(1f);  // Échelle 1:1
         System.out.println("ARCHER CREE");
         archers.add(archer1);
         System.out.println("ARCHER CREE2");
         
-        Archers archer2 = new Archers(150f, 30f, enemySpeed, enemyHealth, player);
+        Archers archer2 = new Archers(150f, 30f, archerSpeed, archerHealth, player);
         archer2.setScale(1f);
         archers.add(archer2);
         
-        Archers archer3 = new Archers(90f, 110f, enemySpeed, enemyHealth, player);
+        Archers archer3 = new Archers(90f, 110f, archerSpeed, archerHealth, player);
         archer3.setScale(1f);
         archers.add(archer3);
+
     }
     
     @Override
