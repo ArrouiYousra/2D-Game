@@ -11,7 +11,7 @@ import com.tlse1.twodgame.entities.Enemy;
 import com.tlse1.twodgame.entities.Inventory;
 import com.tlse1.twodgame.entities.Player;
 import com.tlse1.twodgame.entities.handlers.CollisionHandler;
-import com.tlse1.twodgame.managers.MapLoader;
+import com.tlse1.twodgame.managers.JsonMapLoader;
 import com.tlse1.twodgame.utils.ActionPanelMapping;
 import com.tlse1.twodgame.utils.CharacterPanelMapping;
 import com.tlse1.twodgame.utils.Direction;
@@ -29,7 +29,7 @@ public class GameScreen implements Screen {
     private Enemy enemy;
     
     // Map
-    private MapLoader mapLoader;
+    private JsonMapLoader mapLoader;
     
     // Character panel
     private CharacterPanelMapping characterPanelMapping;
@@ -66,8 +66,8 @@ public class GameScreen implements Screen {
         camera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         camera.update();
         
-        // Charger la map - DÉSACTIVÉ (pas de gestion de map pour cette branche)
-        // mapLoader = new MapLoader("map/first_map.tmx");
+        // Charger la map
+        mapLoader = new JsonMapLoader("map/map.json");
         
         // Créer le joueur
         player = new Player(0, 0);
@@ -142,15 +142,15 @@ public class GameScreen implements Screen {
         
         // Mettre à jour la caméra
         camera.update();
+        
+        // Rendre la map en premier (en arrière-plan) - OrthogonalTiledMapRenderer gère son propre batch
+        if (mapLoader != null) {
+            mapLoader.render(camera);
+        }
+        
+        // Dessiner le joueur et l'ennemi
         batch.setProjectionMatrix(camera.combined);
-        
-        // Dessiner la map, puis le joueur et l'ennemi
         batch.begin();
-        
-        // Rendre la map en premier (en arrière-plan) - DÉSACTIVÉ
-        // if (mapLoader != null) {
-        //     mapLoader.render(batch);
-        // }
         
         // Afficher le joueur même s'il est mort (pour voir l'animation de mort)
         player.render(batch);
@@ -566,10 +566,10 @@ public class GameScreen implements Screen {
         if (enemy != null) {
             enemy.dispose();
         }
-        // Map loader dispose - DÉSACTIVÉ
-        // if (mapLoader != null) {
-        //     mapLoader.dispose();
-        // }
+        // Map loader dispose
+        if (mapLoader != null) {
+            mapLoader.dispose();
+        }
         if (characterPanelMapping != null) {
             characterPanelMapping.dispose();
         }

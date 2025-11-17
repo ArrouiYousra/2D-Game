@@ -1,6 +1,6 @@
 package com.tlse1.twodgame.entities.handlers;
 
-import com.tlse1.twodgame.managers.MapLoader;
+import com.tlse1.twodgame.managers.JsonMapLoader;
 import com.tlse1.twodgame.utils.Direction;
 
 /**
@@ -8,11 +8,11 @@ import com.tlse1.twodgame.utils.Direction;
  */
 public class CollisionHandler {
     
-    private MapLoader mapLoader;
+    private JsonMapLoader mapLoader;
     private float entityWidth;
     private float entityHeight;
     
-    public CollisionHandler(MapLoader mapLoader, float entityWidth, float entityHeight) {
+    public CollisionHandler(JsonMapLoader mapLoader, float entityWidth, float entityHeight) {
         this.mapLoader = mapLoader;
         this.entityWidth = entityWidth;
         this.entityHeight = entityHeight;
@@ -111,11 +111,11 @@ public class CollisionHandler {
     }
     
     // Getters et Setters
-    public MapLoader getMapLoader() {
+    public JsonMapLoader getMapLoader() {
         return mapLoader;
     }
     
-    public void setMapLoader(MapLoader mapLoader) {
+    public void setMapLoader(JsonMapLoader mapLoader) {
         this.mapLoader = mapLoader;
     }
     
