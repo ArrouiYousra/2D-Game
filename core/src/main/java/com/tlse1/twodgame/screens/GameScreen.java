@@ -10,6 +10,8 @@ import com.tlse1.twodgame.TwoDGame;
 import com.tlse1.twodgame.entities.Enemy;
 import com.tlse1.twodgame.entities.Inventory;
 import com.tlse1.twodgame.entities.Player;
+import com.tlse1.twodgame.entities.handlers.CollisionHandler;
+import com.tlse1.twodgame.managers.MapLoader;
 import com.tlse1.twodgame.utils.ActionPanelMapping;
 import com.tlse1.twodgame.utils.CharacterPanelMapping;
 import com.tlse1.twodgame.utils.Direction;
@@ -25,6 +27,9 @@ public class GameScreen implements Screen {
     private OrthographicCamera camera;
     private Player player;
     private Enemy enemy;
+    
+    // Map
+    private MapLoader mapLoader;
     
     // Character panel
     private CharacterPanelMapping characterPanelMapping;
@@ -45,6 +50,9 @@ public class GameScreen implements Screen {
     // Flag pour savoir si on a déjà donné les items de l'ennemi mort
     private boolean enemyDeathLooted = false;
     
+    // Flag pour savoir si les collisions ont été initialisées
+    private boolean collisionsInitialized = false;
+    
     public GameScreen(TwoDGame game) {
         this.game = game;
     }
@@ -58,6 +66,9 @@ public class GameScreen implements Screen {
         camera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         camera.update();
         
+        // Charger la map - DÉSACTIVÉ (pas de gestion de map pour cette branche)
+        // mapLoader = new MapLoader("map/first_map.tmx");
+        
         // Créer le joueur
         player = new Player(0, 0);
         
@@ -67,9 +78,12 @@ public class GameScreen implements Screen {
         player.setX(screenWidth / 2f);
         player.setY(screenHeight / 2f);
         
-        // Créer l'ennemi (vampire)
-        enemy = new Enemy(screenWidth * 0.2f, screenHeight * 0.2f);
-        enemy.setTarget(player); // L'ennemi cible le joueur
+        // Créer l'ennemi (vampire) - DÉSACTIVÉ TEMPORAIREMENT
+        // enemy = new Enemy(screenWidth * 0.2f, screenHeight * 0.2f);
+        // enemy.setTarget(player); // L'ennemi cible le joueur
+        
+        // Les collisions seront configurées après le premier rendu
+        // quand on connaîtra les dimensions réelles des entités
         
         // Charger le character panel
         characterPanelMapping = new CharacterPanelMapping();
@@ -98,23 +112,29 @@ public class GameScreen implements Screen {
         // Mettre à jour le joueur (même s'il est mort, pour l'animation de mort)
         player.update(delta);
         
-        // Gérer l'attaque du joueur sur l'ennemi
-        handlePlayerAttack();
+        // Initialiser les collisions après le premier rendu (quand on connaît les dimensions) - DÉSACTIVÉ
+        // if (!collisionsInitialized && mapLoader != null) {
+        //     initializeCollisions();
+        //     collisionsInitialized = true;
+        // }
         
-        // Vérifier si l'ennemi est mort et ajouter des items à l'inventaire
-        checkEnemyDeath();
+        // Gérer l'attaque du joueur sur l'ennemi - DÉSACTIVÉ TEMPORAIREMENT
+        // handlePlayerAttack();
         
-        // Mettre à jour l'IA de l'ennemi seulement si le joueur est vivant et l'ennemi est vivant
-        if (enemy != null && player.isAlive() && enemy.isAlive()) {
-            enemy.update(delta);
-            enemy.updateAI(delta);
-        }
+        // Vérifier si l'ennemi est mort et ajouter des items à l'inventaire - DÉSACTIVÉ TEMPORAIREMENT
+        // checkEnemyDeath();
+        
+        // Mettre à jour l'IA de l'ennemi seulement si le joueur est vivant et l'ennemi est vivant - DÉSACTIVÉ TEMPORAIREMENT
+        // if (enemy != null && player.isAlive() && enemy.isAlive()) {
+        //     enemy.update(delta);
+        //     enemy.updateAI(delta);
+        // }
         
         // Limiter le joueur dans les bounds de l'écran
         clampToScreenBounds();
         
-        // Limiter l'ennemi dans les bounds de l'écran
-        clampEnemyToScreenBounds();
+        // Limiter l'ennemi dans les bounds de l'écran - DÉSACTIVÉ TEMPORAIREMENT
+        // clampEnemyToScreenBounds();
         
         // Nettoyer l'écran
         Gdx.gl.glClearColor(0.2f, 0.2f, 0.2f, 1);
@@ -124,19 +144,26 @@ public class GameScreen implements Screen {
         camera.update();
         batch.setProjectionMatrix(camera.combined);
         
-        // Dessiner le joueur et l'ennemi
+        // Dessiner la map, puis le joueur et l'ennemi
         batch.begin();
+        
+        // Rendre la map en premier (en arrière-plan) - DÉSACTIVÉ
+        // if (mapLoader != null) {
+        //     mapLoader.render(batch);
+        // }
+        
         // Afficher le joueur même s'il est mort (pour voir l'animation de mort)
         player.render(batch);
-        if (enemy != null) {
-            enemy.render(batch);
-        }
+        // Afficher l'ennemi - DÉSACTIVÉ TEMPORAIREMENT
+        // if (enemy != null) {
+        //     enemy.render(batch);
+        // }
         
         // Dessiner le character panel
         renderCharacterPanel();
         
-        // Dessiner l'action panel
-        renderActionPanel();
+        // Action panel désactivé
+        // renderActionPanel();
         
         batch.end();
     }
@@ -320,20 +347,55 @@ public class GameScreen implements Screen {
         float screenHeight = Gdx.graphics.getHeight();
         
         // Scale pour agrandir l'action panel
-        float panelScale = 3f;
+        float panelScale = 5f; // Augmenté de 3f à 5f
         
-        // Afficher sprite1 (inventaire) - toujours affiché, centré en bas
+        // Afficher sprite1 (inventaire) - positionné à gauche, juste en dessous du CharacterPanel
         com.badlogic.gdx.graphics.g2d.TextureRegion inventorySprite = actionPanelMapping.getSprite("sprite1");
         if (inventorySprite != null) {
             float inventoryWidth = inventorySprite.getRegionWidth() * panelScale;
             float inventoryHeight = inventorySprite.getRegionHeight() * panelScale;
             
-            // Centrer horizontalement, positionner en bas collé au bord
-            float inventoryX = (screenWidth - inventoryWidth) / 2f;
-            float inventoryY = 0f; // Collé au bas de l'écran
+            // Calculer la position du CharacterPanel pour placer l'inventaire juste en dessous
+            float characterPanelX = 10f;
+            float characterPanelScale = 3f;
+            // Récupérer le sprite actuel du CharacterPanel (même logique que renderCharacterPanel)
+            String characterSpriteName = "sprite1"; // Par défaut
+            if (characterPanelMapping != null && player != null) {
+                int health = player.getHealth();
+                int maxHealth = player.getMaxHealth();
+                int shield = player.getShield();
+                int maxShield = player.getMaxShield();
+                if (!player.isAlive() || (health == 0 && shield == 0)) {
+                    characterSpriteName = "sprite1";
+                } else if (health == maxHealth && shield == maxShield && maxShield > 0) {
+                    characterSpriteName = "sprite2";
+                }
+            }
+            com.badlogic.gdx.graphics.g2d.TextureRegion characterSprite = characterPanelMapping != null ? 
+                characterPanelMapping.getSprite(characterSpriteName) : null;
+            float characterPanelHeight = characterSprite != null ? 
+                characterSprite.getRegionHeight() * characterPanelScale : 0f;
+            float characterPanelY = screenHeight - characterPanelHeight - 10f;
             
-            // Dessiner l'inventaire agrandi
-            batch.draw(inventorySprite, inventoryX, inventoryY, inventoryWidth, inventoryHeight);
+            // Positionner l'inventaire vertical à gauche, collé au bord, juste en dessous du CharacterPanel
+            // Après rotation de -90°, inventoryWidth devient la hauteur et inventoryHeight devient la largeur
+            // Pour coller au bord gauche, le point de rotation doit être à inventoryHeight / 2f (largeur après rotation / 2)
+            float inventoryX = 0f; // Collé au bord gauche de l'écran
+            float inventoryY = characterPanelY - inventoryWidth - 5f; // Juste en dessous du CharacterPanel avec espacement
+            
+            // Dessiner l'inventaire agrandi avec rotation de -90° (vers la gauche, vertical)
+            // Le point de rotation est au centre du sprite
+            float originX = inventoryWidth / 2f;
+            float originY = inventoryHeight / 2f;
+            // Position du point de rotation : x doit être à inventoryHeight / 2f pour que le bord gauche soit à 0
+            // y doit être à inventoryY + inventoryWidth / 2f pour centrer verticalement
+            batch.draw(inventorySprite, 
+                inventoryHeight / 2f, // Position X du point de rotation (pour que le bord gauche soit à 0)
+                inventoryY + inventoryWidth / 2f, // Position Y du point de rotation
+                originX, originY, 
+                inventoryWidth, inventoryHeight, 
+                1f, 1f, 
+                -90f); // Rotation de -90 degrés (vers la gauche, vertical)
             
             // Calculer les positions des items en utilisant les coordonnées absolues de l'image
             // sprite1: x=12, y=44, width=168, height=20
@@ -382,15 +444,21 @@ public class GameScreen implements Screen {
             int healSlotIndex = 0; // Premier slot pour heal (rouge)
             int shieldSlotIndex = 1; // Deuxième slot pour shield (bleu)
             
-            // Calculer le centre de chaque carré
+            // Calculer le centre de chaque carré (en tenant compte de la rotation de -90°, vertical)
             float squareSizeScaled = squareSize * panelScale;
             
-            // Position du centre du premier carré (au milieu du premier carré)
-            float firstSquareCenterX = inventoryX + squareSizeScaled / 2f;
+            // Position du centre de rotation de l'inventaire (même position que dans batch.draw)
+            float inventoryCenterX = inventoryHeight / 2f; // Position X du point de rotation
+            float inventoryCenterY = inventoryY + inventoryWidth / 2f; // Position Y du point de rotation
             
-            // Calculer les centres des carrés pour heal et shield
-            float healSquareCenterX = firstSquareCenterX + healSlotIndex * squareSizeScaled;
-            float shieldSquareCenterX = firstSquareCenterX + shieldSlotIndex * squareSizeScaled;
+            // Après rotation de -90°, les slots sont maintenant verticaux
+            // Le premier slot est en bas, le dernier en haut
+            // Calculer les positions des items en tenant compte de la rotation
+            float firstSquareCenterY = inventoryCenterY - (inventoryWidth / 2f) + squareSizeScaled / 2f;
+            
+            // Calculer les centres des carrés pour heal et shield (après rotation, vertical)
+            float healSquareCenterY = firstSquareCenterY + healSlotIndex * squareSizeScaled;
+            float shieldSquareCenterY = firstSquareCenterY + shieldSlotIndex * squareSizeScaled;
             
             // Afficher sprite3 (heal) dans le premier carré si disponible
             int healCount = player.getInventory().getItemCount(Inventory.ItemType.HEAL);
@@ -399,9 +467,9 @@ public class GameScreen implements Screen {
                 if (healSprite != null) {
                     float healWidth = healSprite.getRegionWidth() * panelScale;
                     float healHeight = healSprite.getRegionHeight() * panelScale;
-                    // Centrer parfaitement l'item dans son carré (horizontalement et verticalement)
-                    float healX = healSquareCenterX - healWidth / 2f;
-                    float healY = inventoryY + (inventoryHeight - healHeight) / 2f;
+                    // Centrer parfaitement l'item dans son carré (après rotation, vertical)
+                    float healX = inventoryCenterX - healWidth / 2f;
+                    float healY = healSquareCenterY - healHeight / 2f;
                     batch.draw(healSprite, healX, healY, healWidth, healHeight);
                 }
             }
@@ -413,9 +481,9 @@ public class GameScreen implements Screen {
                 if (shieldSprite != null) {
                     float shieldWidth = shieldSprite.getRegionWidth() * panelScale;
                     float shieldHeight = shieldSprite.getRegionHeight() * panelScale;
-                    // Centrer parfaitement l'item dans son carré (horizontalement et verticalement)
-                    float shieldX = shieldSquareCenterX - shieldWidth / 2f;
-                    float shieldY = inventoryY + (inventoryHeight - shieldHeight) / 2f;
+                    // Centrer parfaitement l'item dans son carré (après rotation, vertical)
+                    float shieldX = inventoryCenterX - shieldWidth / 2f;
+                    float shieldY = shieldSquareCenterY - shieldHeight / 2f;
                     batch.draw(shieldSprite, shieldX, shieldY, shieldWidth, shieldHeight);
                 }
             }
@@ -453,11 +521,41 @@ public class GameScreen implements Screen {
         // Récupérer le sprite
         com.badlogic.gdx.graphics.g2d.TextureRegion sprite = characterPanelMapping.getSprite(spriteName);
         if (sprite != null) {
+            // Scale pour agrandir le character panel
+            float characterPanelScale = 3f;
+            float spriteWidth = sprite.getRegionWidth() * characterPanelScale;
+            float spriteHeight = sprite.getRegionHeight() * characterPanelScale;
+            
             // Positionner le panel en haut à gauche (ou ailleurs selon vos préférences)
             float x = 10f;
-            float y = Gdx.graphics.getHeight() - sprite.getRegionHeight() - 10f;
-            batch.draw(sprite, x, y);
+            float y = Gdx.graphics.getHeight() - spriteHeight - 10f;
+            batch.draw(sprite, x, y, spriteWidth, spriteHeight);
         }
+    }
+    
+    /**
+     * Initialise les collisions pour le joueur et l'ennemi.
+     */
+    private void initializeCollisions() {
+        if (mapLoader == null) {
+            return;
+        }
+        
+        // Configurer les collisions pour le joueur
+        if (player != null && player.getWidth() > 0 && player.getHeight() > 0) {
+            CollisionHandler playerCollision = new CollisionHandler(
+                mapLoader, player.getWidth(), player.getHeight());
+            player.getMovementHandler().setCollisionHandler(playerCollision);
+            Gdx.app.log("GameScreen", "Collisions initialisées pour le joueur");
+        }
+        
+        // Configurer les collisions pour l'ennemi - DÉSACTIVÉ TEMPORAIREMENT
+        // if (enemy != null && enemy.getWidth() > 0 && enemy.getHeight() > 0) {
+        //     CollisionHandler enemyCollision = new CollisionHandler(
+        //         mapLoader, enemy.getWidth(), enemy.getHeight());
+        //     enemy.getMovementHandler().setCollisionHandler(enemyCollision);
+        //     Gdx.app.log("GameScreen", "Collisions initialisées pour l'ennemi");
+        // }
     }
     
     @Override
@@ -468,6 +566,10 @@ public class GameScreen implements Screen {
         if (enemy != null) {
             enemy.dispose();
         }
+        // Map loader dispose - DÉSACTIVÉ
+        // if (mapLoader != null) {
+        //     mapLoader.dispose();
+        // }
         if (characterPanelMapping != null) {
             characterPanelMapping.dispose();
         }

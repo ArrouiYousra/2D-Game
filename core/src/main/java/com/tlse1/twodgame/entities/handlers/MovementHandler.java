@@ -12,6 +12,7 @@ public class MovementHandler {
     private float speed;
     private float runSpeedMultiplier;
     private AnimationHandler animationHandler;
+    private CollisionHandler collisionHandler;
     
     public MovementHandler(float x, float y, float speed, AnimationHandler animationHandler) {
         this.x = x;
@@ -19,6 +20,7 @@ public class MovementHandler {
         this.speed = speed;
         this.runSpeedMultiplier = 1.5f;
         this.animationHandler = animationHandler;
+        this.collisionHandler = null;
     }
     
     /**
@@ -32,19 +34,33 @@ public class MovementHandler {
         float currentSpeed = isRunning ? speed * runSpeedMultiplier : speed;
         float moveDistance = currentSpeed * deltaTime;
         
+        float newX = x;
+        float newY = y;
+        
         switch (direction) {
             case UP:
-                y += moveDistance;
+                newY += moveDistance;
                 break;
             case DOWN:
-                y -= moveDistance;
+                newY -= moveDistance;
                 break;
             case SIDE:
-                x += moveDistance;
+                newX += moveDistance;
                 break;
             case SIDE_LEFT:
-                x -= moveDistance;
+                newX -= moveDistance;
                 break;
+        }
+        
+        // Vérifier les collisions si un CollisionHandler est disponible
+        if (collisionHandler != null) {
+            float[] adjustedPos = collisionHandler.adjustPosition(x, y, newX, newY);
+            x = adjustedPos[0];
+            y = adjustedPos[1];
+        } else {
+            // Pas de collision, déplacer normalement
+            x = newX;
+            y = newY;
         }
         
         if (animationHandler != null) {
@@ -95,6 +111,14 @@ public class MovementHandler {
     
     public void setRunSpeedMultiplier(float runSpeedMultiplier) {
         this.runSpeedMultiplier = runSpeedMultiplier;
+    }
+    
+    public CollisionHandler getCollisionHandler() {
+        return collisionHandler;
+    }
+    
+    public void setCollisionHandler(CollisionHandler collisionHandler) {
+        this.collisionHandler = collisionHandler;
     }
 }
 
