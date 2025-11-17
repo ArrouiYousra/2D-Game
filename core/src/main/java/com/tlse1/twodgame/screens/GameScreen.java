@@ -6,6 +6,8 @@ import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.utils.viewport.StretchViewport;
+import com.badlogic.gdx.utils.viewport.Viewport;
 import com.tlse1.twodgame.TwoDGame;
 import com.tlse1.twodgame.entities.Enemy;
 import com.tlse1.twodgame.entities.Inventory;
@@ -25,6 +27,7 @@ public class GameScreen implements Screen {
     private TwoDGame game;
     private SpriteBatch batch;
     private OrthographicCamera camera;
+    private Viewport viewport;
     private Player player;
     private Enemy enemy;
     
@@ -53,6 +56,10 @@ public class GameScreen implements Screen {
     // Flag pour savoir si les collisions ont été initialisées
     private boolean collisionsInitialized = false;
     
+    // Position précédente du joueur pour détecter les changements
+    private float lastPlayerX = -1f;
+    private float lastPlayerY = -1f;
+    
     public GameScreen(TwoDGame game) {
         this.game = game;
     }
@@ -61,22 +68,34 @@ public class GameScreen implements Screen {
     public void show() {
         batch = new SpriteBatch();
         
-        // Initialiser la caméra
+        // Initialiser la caméra et le viewport
+        // Définir la zone de la map à afficher (180x140 pixels)
+        float mapViewWidth = 180f;
+        float mapViewHeight = 140f;
+        
         camera = new OrthographicCamera();
-        camera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        // Utiliser StretchViewport pour étirer les 180x140 pixels pour remplir l'écran
+        viewport = new StretchViewport(mapViewWidth, mapViewHeight, camera);
+        viewport.apply();
         camera.update();
+        
+        Gdx.app.log("GameScreen", String.format("Caméra configurée: vue de %.0fx%.0f pixels de la map (étirée pour remplir l'écran)", 
+            mapViewWidth, mapViewHeight));
         
         // Charger la map
         mapLoader = new JsonMapLoader("map/map.json");
         
-        // Créer le joueur
+        // Créer le joueur et le positionner en bas à gauche de la map
         player = new Player(0, 0);
         
-        // Centrer le joueur au démarrage (sera ajusté après le premier rendu quand on connaît sa taille)
-        float screenWidth = Gdx.graphics.getWidth();
-        float screenHeight = Gdx.graphics.getHeight();
-        player.setX(screenWidth / 2f);
-        player.setY(screenHeight / 2f);
+        // Positionner le joueur en bas à gauche de la map (offset pour qu'il ne soit pas collé au bord)
+        float playerStartX = 50f; // Offset depuis le bord gauche
+        float playerStartY = 50f; // Offset depuis le bas
+        player.setX(playerStartX);
+        player.setY(playerStartY);
+        
+        // Initialiser la caméra sur le joueur (sera ajusté après le premier rendu quand on connaît sa taille)
+        // La caméra sera mise à jour dans updateCamera() après le premier rendu
         
         // Créer l'ennemi (vampire) - DÉSACTIVÉ TEMPORAIREMENT
         // enemy = new Enemy(screenWidth * 0.2f, screenHeight * 0.2f);
@@ -112,6 +131,12 @@ public class GameScreen implements Screen {
         // Mettre à jour le joueur (même s'il est mort, pour l'animation de mort)
         player.update(delta);
         
+        // Initialiser la caméra sur le joueur après le premier rendu (quand on connaît sa taille)
+        if (!collisionsInitialized && player.getWidth() > 0 && player.getHeight() > 0) {
+            updateCamera();
+            collisionsInitialized = true; // Réutiliser le flag pour l'initialisation de la caméra
+        }
+        
         // Initialiser les collisions après le premier rendu (quand on connaît les dimensions) - DÉSACTIVÉ
         // if (!collisionsInitialized && mapLoader != null) {
         //     initializeCollisions();
@@ -130,17 +155,21 @@ public class GameScreen implements Screen {
         //     enemy.updateAI(delta);
         // }
         
-        // Limiter le joueur dans les bounds de l'écran
-        clampToScreenBounds();
+        // Limiter le joueur dans les bounds de la map (pas de l'écran)
+        clampToMapBounds();
         
         // Limiter l'ennemi dans les bounds de l'écran - DÉSACTIVÉ TEMPORAIREMENT
         // clampEnemyToScreenBounds();
+        
+        // Faire suivre la caméra au joueur
+        updateCamera();
         
         // Nettoyer l'écran
         Gdx.gl.glClearColor(0.2f, 0.2f, 0.2f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
         
-        // Mettre à jour la caméra
+        // Mettre à jour la caméra et le viewport
+        viewport.update((int)Gdx.graphics.getWidth(), (int)Gdx.graphics.getHeight());
         camera.update();
         
         // Rendre la map en premier (en arrière-plan) - OrthogonalTiledMapRenderer gère son propre batch
@@ -270,7 +299,68 @@ public class GameScreen implements Screen {
     }
     
     /**
-     * Limite le joueur dans les bounds de l'écran.
+     * Fait suivre la caméra au joueur.
+     * La caméra ne bouge que si la position du joueur a réellement changé.
+     */
+    private void updateCamera() {
+        if (player == null) {
+            return;
+        }
+        
+        // Récupérer la position actuelle du joueur
+        float currentPlayerX = player.getX();
+        float currentPlayerY = player.getY();
+        
+        // Vérifier si la position a changé (avec une tolérance pour éviter les micro-mouvements)
+        float tolerance = 0.5f;
+        boolean positionChanged = Math.abs(currentPlayerX - lastPlayerX) > tolerance || 
+                                   Math.abs(currentPlayerY - lastPlayerY) > tolerance;
+        
+        // Mettre à jour la caméra seulement si la position a changé
+        if (positionChanged || lastPlayerX < 0 || lastPlayerY < 0) {
+            // Centrer la caméra sur le joueur
+            float playerCenterX = currentPlayerX + player.getWidth() / 2f;
+            float playerCenterY = currentPlayerY + player.getHeight() / 2f;
+            
+            // Positionner la caméra pour centrer le joueur
+            camera.position.set(playerCenterX, playerCenterY, 0);
+            
+            // Mettre à jour la position précédente
+            lastPlayerX = currentPlayerX;
+            lastPlayerY = currentPlayerY;
+        }
+    }
+    
+    /**
+     * Limite le joueur dans les bounds de la map.
+     */
+    private void clampToMapBounds() {
+        if (mapLoader == null || player == null) {
+            return;
+        }
+        
+        // Récupérer les dimensions de la map en pixels
+        int mapWidthPixels = mapLoader.getMapWidth() * mapLoader.getTileWidth();
+        int mapHeightPixels = mapLoader.getMapHeight() * mapLoader.getTileHeight();
+        
+        float playerWidth = player.getWidth();
+        float playerHeight = player.getHeight();
+        
+        // Limiter le joueur dans les bounds de la map
+        float minX = 0;
+        float minY = 0;
+        float maxX = mapWidthPixels - playerWidth;
+        float maxY = mapHeightPixels - playerHeight;
+        
+        float x = Math.max(minX, Math.min(maxX, player.getX()));
+        float y = Math.max(minY, Math.min(maxY, player.getY()));
+        
+        player.setX(x);
+        player.setY(y);
+    }
+    
+    /**
+     * Limite le joueur dans les bounds de l'écran (ancienne méthode, remplacée par clampToMapBounds).
      */
     private void clampToScreenBounds() {
         float screenWidth = Gdx.graphics.getWidth();
@@ -313,7 +403,9 @@ public class GameScreen implements Screen {
     
     @Override
     public void resize(int width, int height) {
-        camera.setToOrtho(false, width, height);
+        // Mettre à jour le viewport pour le nouveau format d'écran
+        // Le StretchViewport étirera automatiquement les 180x140 pixels pour remplir l'écran
+        viewport.update(width, height);
         camera.update();
     }
     

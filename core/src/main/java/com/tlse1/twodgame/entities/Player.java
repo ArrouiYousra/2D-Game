@@ -34,6 +34,21 @@ public class Player extends Character {
         // Initialiser l'inventaire
         inventory = new Inventory();
         
+        // Définir le scale pour que le joueur fasse environ 16x16 pixels
+        // Les sprites originaux font environ 17-20 pixels de large et 27-28 pixels de haut
+        // Pour obtenir 16x16 max, on calcule le scale basé sur la dimension la plus grande (hauteur)
+        float targetSize = 16f;
+        float averageSpriteWidth = 18f; // Largeur moyenne des sprites
+        float averageSpriteHeight = 27f; // Hauteur moyenne des sprites
+        
+        // Calculer le scale pour chaque dimension
+        float scaleX = targetSize / averageSpriteWidth;
+        float scaleY = targetSize / averageSpriteHeight;
+        
+        // Utiliser le plus petit scale pour garantir que le joueur ne dépasse pas 16 pixels
+        float calculatedScale = Math.min(scaleX, scaleY);
+        animationHandler.setScale(calculatedScale);
+        
         // Charger toutes les animations
         loadAnimations();
         
