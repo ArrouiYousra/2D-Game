@@ -145,4 +145,19 @@ public class Enemy extends Character {
     public void setDetectionRange(float detectionRange) {
         this.detectionRange = detectionRange;
     }
+
+    @Override
+    protected void onDeath() {
+        isActive = false;
+    }
+
+    @Override
+    public boolean isAlive() {
+        return isActive && health > 0;
+    }
+
+    @Override
+    public void setHealth(int damage) {
+        this.health -= damage;
+    }
 }

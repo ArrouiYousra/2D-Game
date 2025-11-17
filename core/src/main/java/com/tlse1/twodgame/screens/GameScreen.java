@@ -21,6 +21,10 @@ import com.tlse1.twodgame.entities.Enemy;
 import com.tlse1.twodgame.entities.Player;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.badlogic.gdx.utils.viewport.Viewport;
+import com.tlse1.twodgame.map.JsonMapLoader;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,6 +40,9 @@ public class GameScreen implements Screen {
     private Player player;
     private List<Enemy> enemies;
     private List<Archers> archers;
+    private int x = 180;
+    private int y = 140;
+    private float speed = 100f;
     
     // TileMap
     private OrthographicCamera camera;
@@ -88,7 +95,7 @@ public class GameScreen implements Screen {
         try {
             // Caméra pour la carte - 180x140
             camera = new OrthographicCamera();
-            camera.setToOrtho(false, 640, 480);
+            camera.setToOrtho(false, x, y);
             camera.update();
             
             // Vérification du JSON
@@ -177,6 +184,32 @@ public class GameScreen implements Screen {
             e.printStackTrace();
         }
     }
+
+    public void update() {
+        // Gérer l'input
+        handleInput();
+    }
+
+    private void handleInput() {
+        
+        // Gérer les touches directionnelles (flèches ou WASD)
+        if (Gdx.input.isKeyPressed(Input.Keys.LEFT) || Gdx.input.isKeyPressed(Input.Keys.A)) {
+            camera.translate(-3, 0, 0);
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT) || Gdx.input.isKeyPressed(Input.Keys.D)) {
+            camera.translate(3, 0, 0);
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.DOWN) || Gdx.input.isKeyPressed(Input.Keys.S)) {
+            camera.translate(0, -3, 0);
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.UP) || Gdx.input.isKeyPressed(Input.Keys.W)) {
+            camera.translate(0, 3, 0);
+        }
+
+        camera.position.x = MathUtils.clamp(camera.position.x, x / 2f, 181 - x / 2f);
+		camera.position.y = MathUtils.clamp(camera.position.y, y / 2f, 141 - y / 2f);
+        
+    }
     
     /**
      * Crée des ennemis à différentes positions sur l'écran
@@ -191,7 +224,7 @@ public class GameScreen implements Screen {
         enemies.add(enemy1);
         
         Enemy enemy2 = new Enemy(150f, 30f, enemySpeed, enemyHealth, player);
-        enemy2.setScale(1f);
+        enemy2.setScale(3f);
         enemies.add(enemy2);
         
         Enemy enemy3 = new Enemy(90f, 110f, enemySpeed, enemyHealth, player);
@@ -224,6 +257,9 @@ public class GameScreen implements Screen {
     
     @Override
     public void render(float delta) {
+
+        camera.update();
+
         // Gérer retour au menu (touche Échap)
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
             game.setScreen(new MenuScreen(game));
@@ -289,8 +325,8 @@ public class GameScreen implements Screen {
     @Override
     public void resize(int width, int height) {
         if (camera != null) {
-            camera.viewportWidth = width;
-            camera.viewportHeight = height;
+            camera.viewportWidth = 180;
+            camera.viewportHeight = 140;
             camera.update();
         }
     }

@@ -96,7 +96,7 @@ public class Player extends Character{
             currentDirection = Direction.UP;
             isMoving = true;
         }
-        if (Gdx.input.isKeyPressed(Input.Keys.Q)) {
+        /* if (Gdx.input.isKeyPressed(Input.Keys.Q)) {
 
             Attack melee = new MeleeAttack(50, 2, 1.0f);
             Attack ranged = new RangedAttack(40, 20, 1.5f);
@@ -106,7 +106,7 @@ public class Player extends Character{
             melee.execute("Guerrier", "Ennemi");
             ranged.execute("Archer", "Ennemi");
             magic.execute("Mage", "Ennemi");
-        }
+        } */
     }
 
     @Override
