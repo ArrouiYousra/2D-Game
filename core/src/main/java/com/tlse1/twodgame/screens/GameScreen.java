@@ -194,20 +194,17 @@ public class GameScreen implements Screen {
         
         // Gérer les touches directionnelles (flèches ou WASD)
         if (Gdx.input.isKeyPressed(Input.Keys.LEFT) || Gdx.input.isKeyPressed(Input.Keys.A)) {
-            camera.translate(-3, 0, 0);
+            camera.position.x -= speed;
         }
         if (Gdx.input.isKeyPressed(Input.Keys.RIGHT) || Gdx.input.isKeyPressed(Input.Keys.D)) {
-            camera.translate(3, 0, 0);
+            camera.position.x += speed;
         }
         if (Gdx.input.isKeyPressed(Input.Keys.DOWN) || Gdx.input.isKeyPressed(Input.Keys.S)) {
-            camera.translate(0, -3, 0);
+            camera.position.y -= speed;
         }
         if (Gdx.input.isKeyPressed(Input.Keys.UP) || Gdx.input.isKeyPressed(Input.Keys.W)) {
-            camera.translate(0, 3, 0);
+            camera.position.x += speed;
         }
-
-        camera.position.x = MathUtils.clamp(camera.position.x, x / 2f, 181 - x / 2f);
-		camera.position.y = MathUtils.clamp(camera.position.y, y / 2f, 141 - y / 2f);
         
     }
     
