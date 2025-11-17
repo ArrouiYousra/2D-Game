@@ -1,279 +1,140 @@
 package com.tlse1.twodgame.entities;
 
-import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Input;
-import com.badlogic.gdx.graphics.OrthographicCamera;
-import com.badlogic.gdx.graphics.g2d.Animation;
-import com.badlogic.gdx.graphics.g2d.TextureRegion;
-import com.tlse1.twodgame.utils.Direction;
-import com.tlse1.twodgame.weapons.Weapon;
-
-import java.util.Map;
+import com.tlse1.twodgame.entities.handlers.AnimationLoader;
 
 /**
- * Classe représentant le joueur contrôlé par le clavier.
- * Gère l'input et le mouvement du personnage joueur.
+ * Classe représentant le joueur.
+ * Hérite de Character et charge les animations du swordsman.
  */
 public class Player extends Character {
     
-    // Arme du joueur
-    private Weapon weapon;
-    
-    // Caméra pour calculer la direction de tir (optionnel, peut être null)
-    private OrthographicCamera camera;
+    // Inventaire du joueur
+    private Inventory inventory;
     
     /**
-     * Constructeur par défaut
+     * Constructeur par défaut.
      */
     public Player() {
-        super();
-        initializePlayer();
+        this(0, 0);
     }
     
     /**
-     * Constructeur avec position initiale
+     * Constructeur avec position.
+     * 
+     * @param x Position X initiale
+     * @param y Position Y initiale
      */
     public Player(float x, float y) {
         super(x, y);
-        initializePlayer();
-    }
-    
-    /**
-     * Constructeur complet
-     */
-    public Player(float x, float y, float speed, int maxHealth) {
-        super(x, y, speed, maxHealth);
-        initializePlayer();
-    }
-    
-    /**
-     * Initialise le joueur (appelé dans les constructeurs)
-     */
-    private void initializePlayer() {
-        // Vitesse par défaut du joueur
-        if (speed == 0) {
-            speed = 150f; // pixels par seconde
-        }
         
-        // Utiliser les nouveaux assets avec épée
-        weapon = new Weapon(Weapon.WeaponType.SWORD); // On garde WeaponType pour l'instant, mais c'est une épée
-        hasWeapon = true;
+        // Configurer la santé du joueur (5 HP)
+        combatHandler.setMaxHealth(5);
+        combatHandler.setHealth(5);
         
-        // Configurer les chemins pour les animations avec épée
-        // Les assets sont dans freebase4directionmalecharacter/PNG/Sword/Without_shadow/
-        idlePathPrefix = "freebase4directionmalecharacter/PNG/Sword/Without_shadow/";
-        runPathPrefix = "freebase4directionmalecharacter/PNG/Sword/Without_shadow/";
-        shootPathPrefix = "freebase4directionmalecharacter/PNG/Sword/Without_shadow/";
-        spriteName = "Sword";
+        // Initialiser l'inventaire
+        inventory = new Inventory();
         
-        // Initialiser toutes les animations
-        initializeSwordAnimations();
-        
-        // Direction par défaut
-        currentDirection = Direction.DOWN;
-    }
-    
-    /**
-     * Initialise les animations avec épée depuis les sprite sheets 4 directions
-     */
-    private void initializeSwordAnimations() {
-        // Les sprite sheets contiennent 4 directions (lignes) et plusieurs frames (colonnes)
-        // On va charger chaque animation et extraire les bonnes frames par direction
-        // Les dimensions seront détectées automatiquement ou ajustées selon les assets
-        
-        // Idle : Sword_Idle_without_shadow.png
-        // Essayons avec détection automatique (largeur estimée ~64-128 pixels par frame)
-        loadSwordAnimation("Sword_Idle_without_shadow.png", Direction.DOWN, 64, 0.15f, idleAnimations);
-        loadSwordAnimation("Sword_Idle_without_shadow.png", Direction.SIDE_LEFT, 64, 0.15f, idleAnimations);
-        loadSwordAnimation("Sword_Idle_without_shadow.png", Direction.SIDE, 64, 0.15f, idleAnimations);
-        loadSwordAnimation("Sword_Idle_without_shadow.png", Direction.UP, 64, 0.15f, idleAnimations);
-        
-        // Walk : Sword_Walk_without_shadow.png (utilisé pour le mouvement)
-        loadSwordAnimation("Sword_Walk_without_shadow.png", Direction.DOWN, 64, 0.12f, runAnimations);
-        loadSwordAnimation("Sword_Walk_without_shadow.png", Direction.SIDE_LEFT, 64, 0.12f, runAnimations);
-        loadSwordAnimation("Sword_Walk_without_shadow.png", Direction.SIDE, 64, 0.12f, runAnimations);
-        loadSwordAnimation("Sword_Walk_without_shadow.png", Direction.UP, 64, 0.12f, runAnimations);
-        
-        // Run : Sword_Run_without_shadow.png (si disponible)
-        // Pour l'instant, on utilise Walk pour Run aussi
-        
-        // Attack : Sword_attack_without_shadow.png (utilisé pour l'attaque/tir)
-        loadSwordAnimation("Sword_attack_without_shadow.png", Direction.DOWN, 64, 0.1f, shootAnimations);
-        loadSwordAnimation("Sword_attack_without_shadow.png", Direction.SIDE_LEFT, 64, 0.1f, shootAnimations);
-        loadSwordAnimation("Sword_attack_without_shadow.png", Direction.SIDE, 64, 0.1f, shootAnimations);
-        loadSwordAnimation("Sword_attack_without_shadow.png", Direction.UP, 64, 0.1f, shootAnimations);
+        // Charger toutes les animations
+        loadAnimations();
         
         // Définir l'animation par défaut
-        if (!idleAnimations.isEmpty()) {
-            currentAnimation = idleAnimations.get(Direction.DOWN);
-        }
+        animationHandler.update(0f);
     }
     
     /**
-     * Charge une animation sword depuis une sprite sheet 4 directions avec détection automatique
+     * Retourne l'inventaire du joueur.
+     * 
+     * @return L'inventaire
      */
-    private void loadSwordAnimation(String filename, Direction direction, int estimatedFrameWidth, float frameDuration, Map<Direction, Animation<TextureRegion>> targetMap) {
-        String path = idlePathPrefix + filename;
-        Animation<TextureRegion> animation = loadAnimationFrom4DirectionSheetAuto(path, direction, estimatedFrameWidth, frameDuration);
-        if (animation != null && animation.getKeyFrames().length > 0) {
-            targetMap.put(direction, animation);
-        }
+    public Inventory getInventory() {
+        return inventory;
     }
     
     /**
-     * Charge une animation sword avec un nombre de frames spécifique (si la détection auto ne fonctionne pas)
+     * Utilise un item de type shield.
+     * Restaure le shield du joueur.
+     * 
+     * @return true si un item shield a été utilisé
      */
-    private void loadSwordAnimationFixed(String filename, Direction direction, int framesPerDirection, float frameDuration, Map<Direction, Animation<TextureRegion>> targetMap) {
-        String path = idlePathPrefix + filename;
-        Animation<TextureRegion> animation = loadAnimationFrom4DirectionSheet(path, direction, framesPerDirection, frameDuration);
-        if (animation != null && animation.getKeyFrames().length > 0) {
-            targetMap.put(direction, animation);
+    public boolean useShieldItem() {
+        if (inventory.useItem(Inventory.ItemType.SHIELD)) {
+            // Restaurer le shield à son maximum
+            int maxShield = combatHandler.getMaxShield();
+            if (maxShield > 0) {
+                combatHandler.setShield(maxShield);
+                return true;
+            }
         }
+        return false;
     }
     
     /**
-     * Met à jour le joueur : gère l'input et le mouvement.
+     * Utilise un item de type heal.
+     * Restaure la santé du joueur.
+     * 
+     * @return true si un item heal a été utilisé
+     */
+    public boolean useHealItem() {
+        if (inventory.useItem(Inventory.ItemType.HEAL)) {
+            // Restaurer la santé à son maximum
+            int maxHealth = combatHandler.getMaxHealth();
+            combatHandler.setHealth(maxHealth);
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Charge toutes les animations du swordsman depuis les fichiers JSON.
      */
     @Override
-    public void update(float deltaTime) {
-        // Gérer l'input (définit aussi la direction si on bouge avec le clavier)
-        boolean movedWithKeyboard = handleInput(deltaTime);
+    protected void loadAnimations() {
+        // Idle: y=20 (DOWN), y=83 (SIDE_LEFT), y=147 (SIDE), y=212 (UP)
+        AnimationLoader.loadAnimation(animationHandler,
+            "swordsman1-3/swordsman_lvl1_idle_sprites.json",
+            "swordsman1-3/PNG/Swordsman_lvl1/With_shadow/Swordsman_lvl1_Idle_with_shadow.png",
+            "idle", 0.15f, new int[]{20, 20, 83, 83, 147, 147, 212, 212}, true);
         
-        // Mettre à jour la direction selon la position de la souris seulement si on ne bouge pas avec le clavier
-        if (!movedWithKeyboard) {
-            updateDirectionFromMouse();
-        }
+        // Walk: y=19-21 (DOWN), y=81-83 (SIDE_LEFT), y=145-147 (SIDE), y=210-212 (UP)
+        AnimationLoader.loadAnimation(animationHandler,
+            "swordsman1-3/swordsman_lvl1_walk_sprites.json",
+            "swordsman1-3/PNG/Swordsman_lvl1/With_shadow/Swordsman_lvl1_Walk_with_shadow.png",
+            "walk", 0.12f, new int[]{19, 21, 81, 83, 145, 147, 210, 212}, true);
         
-        // Appeler la méthode update de la classe mère pour gérer les animations
-        super.update(deltaTime);
+        // Run: y=17-19 (DOWN), y=81-84 (SIDE_LEFT), y=145-148 (SIDE), y=210-211 (UP)
+        AnimationLoader.loadAnimation(animationHandler,
+            "swordsman1-3/swordsman_lvl1_run_sprites.json",
+            "swordsman1-3/PNG/Swordsman_lvl1/With_shadow/Swordsman_lvl1_Run_with_shadow.png",
+            "run", 0.10f, new int[]{17, 19, 81, 84, 145, 148, 210, 211}, true);
         
-        // Limiter le joueur dans les bounds de l'écran
-        clampToBounds(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-    }
-    
-    /**
-     * Gère l'input clavier et met à jour la position et la direction du joueur.
-     * @return true si le joueur a bougé avec le clavier
-     */
-    private boolean handleInput(float deltaTime) {
-        isMoving = false;
-        boolean movedWithKeyboard = false;
+        // Attack: y=19-24 (DOWN), y=80-83 (SIDE_LEFT), y=144-147 (SIDE), y=205-213 (UP)
+        AnimationLoader.loadAnimation(animationHandler,
+            "swordsman1-3/swordsman_lvl1_attack_sprites.json",
+            "swordsman1-3/PNG/Swordsman_lvl1/With_shadow/Swordsman_lvl1_attack_with_shadow.png",
+            "attack", 0.08f, new int[]{19, 24, 80, 83, 144, 147, 205, 213}, false);
         
-        // Gérer les touches directionnelles (flèches ou WASD)
-        if (Gdx.input.isKeyPressed(Input.Keys.LEFT) || Gdx.input.isKeyPressed(Input.Keys.A)) {
-            x -= speed * deltaTime;
-            currentDirection = Direction.SIDE_LEFT; // Définir la direction à gauche
-            isMoving = true;
-            movedWithKeyboard = true;
-        }
-        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT) || Gdx.input.isKeyPressed(Input.Keys.D)) {
-            x += speed * deltaTime;
-            currentDirection = Direction.SIDE; // Définir la direction à droite
-            isMoving = true;
-            movedWithKeyboard = true;
-        }
-        if (Gdx.input.isKeyPressed(Input.Keys.DOWN) || Gdx.input.isKeyPressed(Input.Keys.S)) {
-            y -= speed * deltaTime;
-            currentDirection = Direction.DOWN; // Définir la direction vers le bas
-            isMoving = true;
-            movedWithKeyboard = true;
-        }
-        if (Gdx.input.isKeyPressed(Input.Keys.UP) || Gdx.input.isKeyPressed(Input.Keys.W)) {
-            y += speed * deltaTime;
-            currentDirection = Direction.UP; // Définir la direction vers le haut
-            isMoving = true;
-            movedWithKeyboard = true;
-        }
+        // Walk Attack: y=19-23 (DOWN), y=80-84 (SIDE_LEFT), y=144-148 (SIDE), y=205-213 (UP)
+        AnimationLoader.loadAnimation(animationHandler,
+            "swordsman1-3/swordsman_lvl1_walk_attack_sprites.json",
+            "swordsman1-3/PNG/Swordsman_lvl1/With_shadow/Swordsman_lvl1_Walk_Attack_with_shadow.png",
+            "walk_attack", 0.12f, new int[]{19, 23, 80, 84, 144, 148, 205, 213}, false);
         
-        // Gérer le tir (clic souris ou touche E)
-        if (hasWeapon && !isShooting) {
-            if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT) || 
-                Gdx.input.isKeyJustPressed(Input.Keys.E)) {
-                shoot();
-            }
-        }
+        // Run Attack: y=17-19 (DOWN), y=81-84 (SIDE_LEFT), y=145-148 (SIDE), y=210-211 (UP)
+        AnimationLoader.loadAnimation(animationHandler,
+            "swordsman1-3/swordsman_lvl1_run_attack_sprites.json",
+            "swordsman1-3/PNG/Swordsman_lvl1/With_shadow/Swordsman_lvl1_Run_Attack_with_shadow.png",
+            "run_attack", 0.10f, new int[]{17, 19, 81, 84, 145, 148, 210, 211}, false);
         
-        return movedWithKeyboard;
-    }
-    
-    /**
-     * Met à jour la direction du joueur selon la position de la souris
-     * (utilisé seulement quand on ne bouge pas avec le clavier)
-     */
-    private void updateDirectionFromMouse() {
-        // Position de la souris à l'écran
-        float mouseScreenX = Gdx.input.getX();
-        float mouseScreenY = Gdx.graphics.getHeight() - Gdx.input.getY(); // Inverser Y
+        // Hurt: y=20-23 (DOWN), y=83-86 (SIDE_LEFT), y=147-150 (SIDE), y=212-214 (UP)
+        AnimationLoader.loadAnimation(animationHandler,
+            "swordsman1-3/swordsman_lvl1_hurt_sprites.json",
+            "swordsman1-3/PNG/Swordsman_lvl1/With_shadow/Swordsman_lvl1_Hurt_with_shadow.png",
+            "hurt", 0.1f, new int[]{20, 23, 83, 86, 147, 150, 212, 214}, false);
         
-        // Position du joueur (centre) à l'écran
-        float playerCenterX = x + width / 2;
-        float playerCenterY = y + height / 2;
-        
-        // Calculer la direction
-        float dx = mouseScreenX - playerCenterX;
-        float dy = mouseScreenY - playerCenterY;
-        
-        // Déterminer la direction principale
-        if (Math.abs(dy) > Math.abs(dx)) {
-            // Vertical
-            if (dy > 0) {
-                currentDirection = Direction.UP;
-            } else {
-                currentDirection = Direction.DOWN;
-            }
-        } else {
-            // Horizontal
-            if (dx > 0) {
-                currentDirection = Direction.SIDE;
-            } else {
-                currentDirection = Direction.SIDE_LEFT;
-            }
-        }
-    }
-    
-    /**
-     * Fait tirer le joueur
-     */
-    public void shoot() {
-        if (hasWeapon && !isShooting) {
-            isShooting = true;
-            shootStateTime = 0f;
-        }
-    }
-    
-    /**
-     * Retourne la vitesse actuelle du joueur
-     */
-    public float getSpeed() {
-        return speed;
-    }
-    
-    /**
-     * Définit la vitesse du joueur
-     */
-    public void setSpeed(float speed) {
-        this.speed = speed;
-    }
-    
-    /**
-     * Retourne l'arme du joueur
-     */
-    public Weapon getWeapon() {
-        return weapon;
-    }
-    
-    /**
-     * Définit l'arme du joueur
-     */
-    public void setWeapon(Weapon weapon) {
-        this.weapon = weapon;
-        // TODO: Recharger les animations si nécessaire
-    }
-    
-    /**
-     * Définit la caméra pour le calcul de la direction de tir
-     */
-    public void setCamera(OrthographicCamera camera) {
-        this.camera = camera;
+        // Death: y=20-31 (DOWN), y=83-92 (SIDE_LEFT), y=147-156 (SIDE), y=212-222 (UP)
+        AnimationLoader.loadAnimation(animationHandler,
+            "swordsman1-3/swordsman_lvl1_death_sprites.json",
+            "swordsman1-3/PNG/Swordsman_lvl1/With_shadow/Swordsman_lvl1_Death_with_shadow.png",
+            "death", 0.15f, new int[]{20, 31, 83, 92, 147, 156, 212, 222}, false);
     }
 }

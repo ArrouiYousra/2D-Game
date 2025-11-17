@@ -1,20 +1,18 @@
 package com.tlse1.twodgame;
 
 import com.badlogic.gdx.Game;
-import com.tlse1.twodgame.screens.SwordsmanTestScreen;
+import com.tlse1.twodgame.screens.GameScreen;
 
 /**
  * Classe principale du jeu utilisant le système de screens de LibGDX.
  * Gère la navigation entre les différents écrans (menu, jeu, etc.).
- * 
- * TEMPORAIRE : Test du Swordsman
  */
 public class TwoDGame extends Game {
     
     @Override
     public void create() {
-        // TEMPORAIRE : Tester le chargement des sprites du Swordsman
-        setScreen(new SwordsmanTestScreen(this));
+        // Lancer l'écran de jeu principal
+        setScreen(new GameScreen(this));
     }
     
     @Override

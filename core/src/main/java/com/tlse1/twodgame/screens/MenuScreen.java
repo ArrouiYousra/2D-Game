@@ -8,7 +8,6 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.tlse1.twodgame.TwoDGame;
-import com.tlse1.twodgame.screens.GameScreen;
 import com.tlse1.twodgame.screens.SettingsScreen;
 import com.tlse1.twodgame.utils.MenuMapping;
 
@@ -218,8 +217,8 @@ public class MenuScreen implements Screen {
                 // TODO: Reprendre la partie (si une partie est en cours)
                 Gdx.app.log("MenuScreen", "Bouton Resume cliqué");
             } else if (isMouseOverRestart) {
-                // Redémarrer la partie
-                game.setScreen(new GameScreen(game));
+                // Redémarrer la partie (TODO: créer GameScreen)
+                Gdx.app.log("MenuScreen", "Bouton Restart cliqué (GameScreen non disponible)");
             } else if (isMouseOverSettings) {
                 // Aller aux paramètres
                 game.setScreen(new SettingsScreen(game));
