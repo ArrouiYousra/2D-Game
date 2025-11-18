@@ -79,6 +79,7 @@ public class JsonMapLoader {
                 Gdx.app.log("JsonMapLoader", "Chargement layer: " + layerName);
                 
                 TiledMapTileLayer layer = new TiledMapTileLayer(mapWidth, mapHeight, tileWidth, tileHeight);
+                layer.setName(layerName); // Définir le nom du layer pour pouvoir le récupérer par nom
                 
                 JsonValue dataArray = layerJson.get("data");
                 int y = mapHeight - 1;
@@ -145,12 +146,14 @@ public class JsonMapLoader {
     
     /**
      * Vérifie si une position est en collision avec la map.
+     * Le joueur peut seulement marcher sur "ground" et "shadow".
+     * Il est bloqué par "structures" et toutes les autres zones.
      * 
      * @param x Position X en pixels
      * @param y Position Y en pixels
      * @param width Largeur de l'entité
      * @param height Hauteur de l'entité
-     * @return true si collision
+     * @return true si collision (position invalide)
      */
     public boolean isColliding(float x, float y, float width, float height) {
         if (tiledMap == null) {
@@ -158,30 +161,55 @@ public class JsonMapLoader {
         }
         
         // Convertir les coordonnées pixels en coordonnées tiles
+        // Dans LibGDX TiledMap, Y=0 est en bas, comme notre système de coordonnées
         int startTileX = (int) (x / tileWidth);
         int startTileY = (int) (y / tileHeight);
         int endTileX = (int) ((x + width) / tileWidth);
         int endTileY = (int) ((y + height) / tileHeight);
         
-        // Vérifier le layer "structures" pour les collisions
+        // Récupérer les layers nécessaires
+        TiledMapTileLayer groundLayer = (TiledMapTileLayer) tiledMap.getLayers().get("ground");
+        TiledMapTileLayer shadowLayer = (TiledMapTileLayer) tiledMap.getLayers().get("shadow");
         TiledMapTileLayer structuresLayer = (TiledMapTileLayer) tiledMap.getLayers().get("structures");
-        if (structuresLayer == null) {
-            return false;
-        }
         
         // Vérifier toutes les tiles dans la zone
         for (int tileY = startTileY; tileY <= endTileY; tileY++) {
             for (int tileX = startTileX; tileX <= endTileX; tileX++) {
                 if (tileX >= 0 && tileX < mapWidth && tileY >= 0 && tileY < mapHeight) {
-                    TiledMapTileLayer.Cell cell = structuresLayer.getCell(tileX, tileY);
-                    if (cell != null && cell.getTile() != null) {
-                        return true; // Collision détectée
+                    // Vérifier si c'est une structure (bloquant)
+                    if (structuresLayer != null) {
+                        TiledMapTileLayer.Cell structureCell = structuresLayer.getCell(tileX, tileY);
+                        if (structureCell != null && structureCell.getTile() != null) {
+                            return true; // Collision avec une structure
+                        }
                     }
+                    
+                    // Vérifier si la tile est sur ground ou shadow (zones valides)
+                    boolean onGround = false;
+                    boolean onShadow = false;
+                    
+                    if (groundLayer != null) {
+                        TiledMapTileLayer.Cell groundCell = groundLayer.getCell(tileX, tileY);
+                        onGround = (groundCell != null && groundCell.getTile() != null);
+                    }
+                    
+                    if (shadowLayer != null) {
+                        TiledMapTileLayer.Cell shadowCell = shadowLayer.getCell(tileX, tileY);
+                        onShadow = (shadowCell != null && shadowCell.getTile() != null);
+                    }
+                    
+                    // Si la tile n'est ni sur ground ni sur shadow, c'est une collision
+                    if (!onGround && !onShadow) {
+                        return true; // Collision : zone non marchable
+                    }
+                } else {
+                    // Hors limites de la map = collision
+                    return true;
                 }
             }
         }
         
-        return false;
+        return false; // Pas de collision, position valide
     }
     
     /**
