@@ -146,8 +146,7 @@ public class JsonMapLoader {
     
     /**
      * Vérifie si une position est en collision avec la map.
-     * Le joueur peut seulement marcher sur "ground" et "shadow".
-     * Il est bloqué par "structures" et toutes les autres zones.
+     * Le joueur peut aller partout sauf sur le layer "collisions" où il y a une tile non-nulle.
      * 
      * @param x Position X en pixels
      * @param y Position Y en pixels
@@ -167,40 +166,20 @@ public class JsonMapLoader {
         int endTileX = (int) ((x + width) / tileWidth);
         int endTileY = (int) ((y + height) / tileHeight);
         
-        // Récupérer les layers nécessaires
-        TiledMapTileLayer groundLayer = (TiledMapTileLayer) tiledMap.getLayers().get("ground");
-        TiledMapTileLayer shadowLayer = (TiledMapTileLayer) tiledMap.getLayers().get("shadow");
-        TiledMapTileLayer structuresLayer = (TiledMapTileLayer) tiledMap.getLayers().get("structures");
+        // Récupérer le layer "collisions"
+        TiledMapTileLayer collisionsLayer = (TiledMapTileLayer) tiledMap.getLayers().get("collisions");
         
         // Vérifier toutes les tiles dans la zone
         for (int tileY = startTileY; tileY <= endTileY; tileY++) {
             for (int tileX = startTileX; tileX <= endTileX; tileX++) {
                 if (tileX >= 0 && tileX < mapWidth && tileY >= 0 && tileY < mapHeight) {
-                    // Vérifier si c'est une structure (bloquant)
-                    if (structuresLayer != null) {
-                        TiledMapTileLayer.Cell structureCell = structuresLayer.getCell(tileX, tileY);
-                        if (structureCell != null && structureCell.getTile() != null) {
-                            return true; // Collision avec une structure
+                    // Vérifier si c'est une zone de collision
+                    if (collisionsLayer != null) {
+                        TiledMapTileLayer.Cell collisionCell = collisionsLayer.getCell(tileX, tileY);
+                        // Si la tile existe et n'est pas vide, c'est une collision
+                        if (collisionCell != null && collisionCell.getTile() != null) {
+                            return true; // Collision avec une zone bloquante
                         }
-                    }
-                    
-                    // Vérifier si la tile est sur ground ou shadow (zones valides)
-                    boolean onGround = false;
-                    boolean onShadow = false;
-                    
-                    if (groundLayer != null) {
-                        TiledMapTileLayer.Cell groundCell = groundLayer.getCell(tileX, tileY);
-                        onGround = (groundCell != null && groundCell.getTile() != null);
-                    }
-                    
-                    if (shadowLayer != null) {
-                        TiledMapTileLayer.Cell shadowCell = shadowLayer.getCell(tileX, tileY);
-                        onShadow = (shadowCell != null && shadowCell.getTile() != null);
-                    }
-                    
-                    // Si la tile n'est ni sur ground ni sur shadow, c'est une collision
-                    if (!onGround && !onShadow) {
-                        return true; // Collision : zone non marchable
                     }
                 } else {
                     // Hors limites de la map = collision
