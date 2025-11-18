@@ -369,6 +369,18 @@ public class GameScreen implements Screen {
         float currentPlayerX = player.getX();
         float currentPlayerY = player.getY();
         
+        // Zone où la caméra ne suit pas le joueur (entre x = 64 et x = 704)
+        float cameraStopZoneMinX = 64f;
+        float cameraStopZoneMaxX = 704f;
+        
+        // Vérifier si le joueur est dans la zone où la caméra ne suit pas
+        boolean inCameraStopZone = currentPlayerX >= cameraStopZoneMinX && currentPlayerX <= cameraStopZoneMaxX;
+        
+        // Si le joueur est dans la zone, ne pas mettre à jour la caméra
+        if (inCameraStopZone) {
+            return;
+        }
+        
         // Vérifier si la position a changé (avec une tolérance pour éviter les micro-mouvements)
         float tolerance = 0.5f;
         boolean positionChanged = Math.abs(currentPlayerX - lastPlayerX) > tolerance || 
