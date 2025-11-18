@@ -16,6 +16,7 @@ import com.tlse1.twodgame.entities.Player;
 import com.tlse1.twodgame.entities.handlers.CollisionHandler;
 import com.tlse1.twodgame.managers.JsonMapLoader;
 import com.tlse1.twodgame.ui.HealthBar;
+import com.tlse1.twodgame.ui.ShieldBar;
 import com.tlse1.twodgame.utils.ActionPanelMapping;
 import com.tlse1.twodgame.utils.CharacterPanelMapping;
 import com.tlse1.twodgame.utils.Direction;
@@ -46,6 +47,9 @@ public class GameScreen implements Screen {
     
     // Health bar
     private HealthBar healthBar;
+    
+    // Shield bar
+    private ShieldBar shieldBar;
     
     // Portée d'attaque du joueur
     private float playerAttackRange = 100f;
@@ -132,6 +136,9 @@ public class GameScreen implements Screen {
         float healthBarX = 10f;
         float healthBarY = Gdx.graphics.getHeight() - (30f * healthBarScale) - 10f; // 30 = hauteur du panel
         healthBar = new HealthBar(healthBarX, healthBarY, healthBarScale, characterPanelMapping);
+        
+        // Initialiser la barre de shield (même position et scale que healthBar)
+        shieldBar = new ShieldBar(healthBarX, healthBarY, healthBarScale, characterPanelMapping);
     }
     
     @Override
@@ -219,19 +226,31 @@ public class GameScreen implements Screen {
         
         batch.end();
         
-        // Dessiner la barre de santé (en coordonnées écran)
-        if (player != null && healthBar != null) {
-            // Mettre à jour la barre avec la santé actuelle du joueur
-            healthBar.update(player.getHealth(), player.getMaxHealth());
-            
-            // Mettre à jour la position Y de la barre en cas de redimensionnement
+        // Dessiner les barres de santé et shield (en coordonnées écran)
+        if (player != null) {
             float screenHeight = Gdx.graphics.getHeight();
-            healthBar.setPosition(10f, screenHeight - healthBar.getHeight() - 10f);
             
-            // Dessiner la barre avec SpriteBatch en coordonnées écran
+            // Mettre à jour et dessiner la barre de santé
+            if (healthBar != null) {
+                healthBar.update(player.getHealth(), player.getMaxHealth());
+                healthBar.setPosition(10f, screenHeight - healthBar.getHeight() - 10f);
+            }
+            
+            // Mettre à jour et dessiner la barre de shield
+            if (shieldBar != null) {
+                shieldBar.update(player.getShield(), player.getMaxShield());
+                shieldBar.setPosition(10f, screenHeight - shieldBar.getHeight() - 10f);
+            }
+            
+            // Dessiner les barres avec SpriteBatch en coordonnées écran
             batch.setProjectionMatrix(uiCamera.combined);
             batch.begin();
-            healthBar.render(batch);
+            if (healthBar != null) {
+                healthBar.render(batch);
+            }
+            if (shieldBar != null) {
+                shieldBar.render(batch);
+            }
             batch.end();
         }
     }
@@ -718,6 +737,9 @@ public class GameScreen implements Screen {
         }
         if (healthBar != null) {
             healthBar.dispose();
+        }
+        if (shieldBar != null) {
+            shieldBar.dispose();
         }
     }
 }
