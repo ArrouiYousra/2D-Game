@@ -17,7 +17,7 @@ import com.badlogic.gdx.graphics.Texture;
  * Écran de menu principal.
  * Affiche le menu avec sprite6 comme fond et les boutons depuis Main_menu.png.
  */
-public class MenuScreen implements Screen {
+public class PauseScreen implements Screen {
     
     private TwoDGame game;
     private SpriteBatch batch;
