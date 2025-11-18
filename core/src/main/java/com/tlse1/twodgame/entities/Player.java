@@ -31,6 +31,10 @@ public class Player extends Character {
         combatHandler.setMaxHealth(5);
         combatHandler.setHealth(5);
         
+        // Configurer le shield du joueur (3 shield max pour tester)
+        combatHandler.setMaxShield(3);
+        combatHandler.setShield(3);
+        
         // Initialiser l'inventaire
         inventory = new Inventory();
         

@@ -30,7 +30,13 @@ public class CollisionHandler {
             return true; // Pas de map = toujours valide
         }
         
-        return !mapLoader.isColliding(x, y, entityWidth, entityHeight);
+        boolean colliding = mapLoader.isColliding(x, y, entityWidth, entityHeight);
+        // Log seulement occasionnellement pour éviter le spam
+        if (colliding && Math.random() < 0.01) {
+            com.badlogic.gdx.Gdx.app.debug("CollisionHandler", String.format(
+                "Position invalide: (%.1f, %.1f) size (%.1f, %.1f)", x, y, entityWidth, entityHeight));
+        }
+        return !colliding;
     }
     
     /**
