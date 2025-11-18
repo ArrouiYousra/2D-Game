@@ -147,6 +147,7 @@ nb-configuration.xml
 ## OS-Specific:
 .DS_Store
 Thumbs.db
+*Zone.Identifier
 
 ## Miscellaneous:
 *~

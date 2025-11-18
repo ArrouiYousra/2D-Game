@@ -1,252 +1,190 @@
 package com.tlse1.twodgame.entities;
 
-import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.Animation;
-import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.tlse1.twodgame.entities.handlers.AnimationHandler;
+import com.tlse1.twodgame.entities.handlers.CombatHandler;
+import com.tlse1.twodgame.entities.handlers.MovementHandler;
 import com.tlse1.twodgame.utils.Direction;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
- * Classe abstraite pour les personnages du jeu.
- * Gère les animations Idle et Run pour toutes les directions,
- * ainsi que la santé du personnage.
+ * Classe de base abstraite pour tous les personnages du jeu.
+ * Utilise un système de handlers pour séparer les responsabilités.
+ * Les classes filles (Player, Enemy) doivent charger leurs animations spécifiques.
  */
-public abstract class Character extends AnimatedEntity {
+public abstract class Character {
     
-    // Santé du personnage
-    protected int health;
-    protected int maxHealth;
+    // Handlers
+    protected AnimationHandler animationHandler;
+    protected CombatHandler combatHandler;
+    protected MovementHandler movementHandler;
     
-    // Liste des textures chargées pour pouvoir les libérer
-    protected List<Texture> textures;
-    
-    // Préfixe pour les chemins des assets (ex: "character_sprites/Idle/")
-    protected String idlePathPrefix;
-    protected String runPathPrefix;
-    
-    // Nom de base pour les fichiers (ex: "Character_down_idle_no-hands-Sheet6.png")
-    protected String spriteName;
+    // Dimensions (mises à jour par le rendu)
+    private float width;
+    private float height;
     
     /**
-     * Constructeur par défaut
+     * Constructeur par défaut.
+     * Initialise le personnage à la position (0, 0).
      */
     public Character() {
-        super();
-        this.health = 100;
-        this.maxHealth = 100;
-        this.textures = new ArrayList<>();
-        this.idlePathPrefix = "character_sprites/Idle/";
-        this.runPathPrefix = "character_sprites/Run/";
-        this.spriteName = "Character";
+        this(0, 0);
     }
     
     /**
-     * Constructeur avec position
+     * Constructeur avec position.
+     * 
+     * @param x Position X initiale
+     * @param y Position Y initiale
      */
     public Character(float x, float y) {
-        super(x, y);
-        this.health = 100;
-        this.maxHealth = 100;
-        this.textures = new ArrayList<>();
-        this.idlePathPrefix = "character_sprites/Idle/";
-        this.runPathPrefix = "character_sprites/Run/";
-        this.spriteName = "Character";
-    }
-    
-    /**
-     * Constructeur complet
-     */
-    public Character(float x, float y, float speed, int maxHealth) {
-        super(x, y, speed, 0, 0);
-        this.health = maxHealth;
-        this.maxHealth = maxHealth;
-        this.textures = new ArrayList<>();
-        this.idlePathPrefix = "character_sprites/Idle/";
-        this.runPathPrefix = "character_sprites/Run/";
-        this.spriteName = "Character";
-    }
-    
-    /**
-     * Initialise toutes les animations du personnage.
-     * Cette méthode doit être appelée après la création du personnage.
-     */
-    protected void initializeAnimations() {
-        // Charger les animations Idle
-        loadIdleAnimation(Direction.DOWN);
-        loadIdleAnimation(Direction.UP);
-        loadIdleAnimation(Direction.SIDE);
-        loadIdleAnimation(Direction.SIDE_LEFT);
+        // Initialiser les handlers
+        this.animationHandler = new AnimationHandler();
+        this.combatHandler = new CombatHandler(100, animationHandler); // 100 HP par défaut
+        this.movementHandler = new MovementHandler(x, y, 150f, animationHandler); // 150 pixels/seconde par défaut
         
-        // Charger les animations Run
-        loadRunAnimation(Direction.DOWN);
-        loadRunAnimation(Direction.UP);
-        loadRunAnimation(Direction.SIDE);
-        loadRunAnimation(Direction.SIDE_LEFT);
-        
-        // Définir l'animation par défaut
-        if (!idleAnimations.isEmpty()) {
-            currentAnimation = idleAnimations.get(Direction.DOWN);
-        }
+        // Les classes filles doivent charger leurs animations dans leur constructeur
     }
     
     /**
-     * Charge une animation idle pour une direction donnée
+     * Charge toutes les animations du personnage.
+     * Doit être implémentée par les classes filles.
      */
-    protected void loadIdleAnimation(Direction direction) {
-        String path = buildAnimationPath(idlePathPrefix, direction, "idle");
-        Animation<TextureRegion> animation = loadAnimationWithTextureTracking(path);
-        addIdleAnimation(direction, animation);
+    protected abstract void loadAnimations();
+    
+    /**
+     * Met à jour le personnage.
+     * 
+     * @param deltaTime Temps écoulé depuis la dernière frame
+     */
+    public void update(float deltaTime) {
+        animationHandler.update(deltaTime);
     }
     
     /**
-     * Charge une animation run pour une direction donnée
+     * Dessine le personnage.
+     * 
+     * @param batch SpriteBatch pour le rendu
      */
-    protected void loadRunAnimation(Direction direction) {
-        String path = buildAnimationPath(runPathPrefix, direction, "run");
-        Animation<TextureRegion> animation = loadAnimationWithTextureTracking(path);
-        addRunAnimation(direction, animation);
+    public void render(SpriteBatch batch) {
+        float[] dimensions = animationHandler.render(batch, movementHandler.getX(), movementHandler.getY());
+        width = dimensions[0];
+        height = dimensions[1];
     }
     
     /**
-     * Construit le chemin vers l'animation selon la direction
+     * Libère les ressources.
      */
-    private String buildAnimationPath(String prefix, Direction direction, String action) {
-        String directionName = getDirectionName(direction);
-        return prefix + spriteName + "_" + directionName + "_" + action + "_no-hands-Sheet6.png";
-    }
-    
-    /**
-     * Retourne le nom de direction pour les fichiers d'assets
-     */
-    private String getDirectionName(Direction direction) {
-        switch (direction) {
-            case DOWN:
-                return "down";
-            case UP:
-                return "up";
-            case SIDE:
-                return "side";
-            case SIDE_LEFT:
-                return "side-left";
-            default:
-                return "down";
-        }
-    }
-    
-    /**
-     * Charge une animation et stocke la texture pour pouvoir la libérer
-     */
-    private Animation<TextureRegion> loadAnimationWithTextureTracking(String path) {
-        Animation<TextureRegion> animation = loadAnimation(path);
-        
-        // Extraire la texture de l'animation pour la stocker
-        // Note: Les TextureRegion contiennent une référence à la texture
-        TextureRegion firstFrame = animation.getKeyFrame(0);
-        if (firstFrame != null && firstFrame.getTexture() != null) {
-            textures.add(firstFrame.getTexture());
-        }
-        
-        return animation;
-    }
-    
-    /**
-     * Inflige des dégâts au personnage
-     */
-    public void takeDamage(int damage) {
-        health = Math.max(0, health - damage);
-        if (health <= 0) {
-            onDeath();
-        }
-    }
-    
-    /**
-     * Soigne le personnage
-     */
-    public void heal(int amount) {
-        health = Math.min(maxHealth, health + amount);
-    }
-    
-    /**
-     * Méthode appelée lorsque le personnage meurt
-     * Peut être surchargée dans les classes filles
-     */
-    protected void onDeath() {
-        isActive = false;
-    }
-    
-    /**
-     * Vérifie si le personnage est vivant
-     */
-    public boolean isAlive() {
-        return health > 0 && isActive;
-    }
-    
-    /**
-     * Libère les ressources du personnage
-     */
-    @Override
     public void dispose() {
-        super.dispose();
-        
-        // Libérer toutes les textures
-        for (Texture texture : textures) {
-            if (texture != null) {
-                texture.dispose();
-            }
+        if (animationHandler != null) {
+            animationHandler.dispose();
         }
-        textures.clear();
     }
     
-    // Getters et Setters
+    // Déléguer les méthodes aux handlers
+    
+    // Position
+    public float getX() {
+        return movementHandler.getX();
+    }
+    
+    public void setX(float x) {
+        movementHandler.setX(x);
+    }
+    
+    public float getY() {
+        return movementHandler.getY();
+    }
+    
+    public void setY(float y) {
+        movementHandler.setY(y);
+    }
+    
+    // Dimensions
+    public float getWidth() {
+        return width;
+    }
+    
+    public float getHeight() {
+        return height;
+    }
+    
+    // Direction
+    public Direction getCurrentDirection() {
+        return animationHandler.getCurrentDirection();
+    }
+    
+    public void setCurrentDirection(Direction direction) {
+        animationHandler.setCurrentDirection(direction);
+    }
+    
+    // Mouvement
+    public boolean isMoving() {
+        return animationHandler.isMoving();
+    }
+    
+    public void setMoving(boolean moving) {
+        animationHandler.setMoving(moving);
+    }
+    
+    public boolean isRunning() {
+        return animationHandler.isRunning();
+    }
+    
+    public void setRunning(boolean running) {
+        animationHandler.setRunning(running);
+    }
+    
+    // Combat
+    public void attack() {
+        animationHandler.attack();
+    }
+    
+    public boolean isAttacking() {
+        return animationHandler.isAttacking();
+    }
+    
+    public void takeDamage(int damage) {
+        combatHandler.takeDamage(damage);
+    }
+    
     public int getHealth() {
-        return health;
-    }
-    
-    public void setHealth(int health) {
-        this.health = Math.max(0, Math.min(maxHealth, health));
+        return combatHandler.getHealth();
     }
     
     public int getMaxHealth() {
-        return maxHealth;
+        return combatHandler.getMaxHealth();
     }
     
-    public void setMaxHealth(int maxHealth) {
-        this.maxHealth = maxHealth;
-        if (health > maxHealth) {
-            health = maxHealth;
-        }
+    public boolean isAlive() {
+        return combatHandler.isAlive();
     }
     
-    /**
-     * Retourne le pourcentage de santé (0.0 à 1.0)
-     */
-    public float getHealthPercentage() {
-        return maxHealth > 0 ? (float) health / maxHealth : 0f;
+    public boolean isHurt() {
+        return animationHandler.isHurt();
     }
     
-    public String getSpriteName() {
-        return spriteName;
+    public boolean isDead() {
+        return animationHandler.isDead();
     }
     
-    public void setSpriteName(String spriteName) {
-        this.spriteName = spriteName;
+    public int getShield() {
+        return combatHandler.getShield();
     }
     
-    public String getIdlePathPrefix() {
-        return idlePathPrefix;
+    public int getMaxShield() {
+        return combatHandler.getMaxShield();
     }
     
-    public void setIdlePathPrefix(String idlePathPrefix) {
-        this.idlePathPrefix = idlePathPrefix;
+    // Handlers (pour accès direct si nécessaire)
+    public AnimationHandler getAnimationHandler() {
+        return animationHandler;
     }
     
-    public String getRunPathPrefix() {
-        return runPathPrefix;
+    public CombatHandler getCombatHandler() {
+        return combatHandler;
     }
     
-    public void setRunPathPrefix(String runPathPrefix) {
-        this.runPathPrefix = runPathPrefix;
+    public MovementHandler getMovementHandler() {
+        return movementHandler;
     }
 }
