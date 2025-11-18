@@ -6,6 +6,7 @@ import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.viewport.StretchViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.tlse1.twodgame.TwoDGame;
@@ -14,6 +15,8 @@ import com.tlse1.twodgame.entities.Inventory;
 import com.tlse1.twodgame.entities.Player;
 import com.tlse1.twodgame.entities.handlers.CollisionHandler;
 import com.tlse1.twodgame.managers.JsonMapLoader;
+import com.tlse1.twodgame.ui.HealthBar;
+import com.tlse1.twodgame.ui.ShieldBar;
 import com.tlse1.twodgame.utils.ActionPanelMapping;
 import com.tlse1.twodgame.utils.CharacterPanelMapping;
 import com.tlse1.twodgame.utils.Direction;
@@ -26,7 +29,9 @@ public class GameScreen implements Screen {
     
     private TwoDGame game;
     private SpriteBatch batch;
+    private ShapeRenderer shapeRenderer;
     private OrthographicCamera camera;
+    private OrthographicCamera uiCamera;
     private Viewport viewport;
     private Player player;
     private Enemy enemy;
@@ -39,6 +44,12 @@ public class GameScreen implements Screen {
     
     // Action panel
     private ActionPanelMapping actionPanelMapping;
+    
+    // Health bar
+    private HealthBar healthBar;
+    
+    // Shield bar
+    private ShieldBar shieldBar;
     
     // Portée d'attaque du joueur
     private float playerAttackRange = 100f;
@@ -56,6 +67,9 @@ public class GameScreen implements Screen {
     // Flag pour savoir si les collisions ont été initialisées
     private boolean collisionsInitialized = false;
     
+    // Flag pour savoir si la caméra a été initialisée
+    private boolean cameraInitialized = false;
+    
     // Position précédente du joueur pour détecter les changements
     private float lastPlayerX = -1f;
     private float lastPlayerY = -1f;
@@ -67,6 +81,7 @@ public class GameScreen implements Screen {
     @Override
     public void show() {
         batch = new SpriteBatch();
+        shapeRenderer = new ShapeRenderer();
         
         // Initialiser la caméra et le viewport
         // Définir la zone de la map à afficher (180x140 pixels)
@@ -78,6 +93,11 @@ public class GameScreen implements Screen {
         viewport = new StretchViewport(mapViewWidth, mapViewHeight, camera);
         viewport.apply();
         camera.update();
+        
+        // Initialiser la caméra UI pour les éléments d'interface (barre de santé)
+        uiCamera = new OrthographicCamera();
+        uiCamera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        uiCamera.update();
         
         Gdx.app.log("GameScreen", String.format("Caméra configurée: vue de %.0fx%.0f pixels de la map (étirée pour remplir l'écran)", 
             mapViewWidth, mapViewHeight));
@@ -109,6 +129,16 @@ public class GameScreen implements Screen {
         
         // Charger l'action panel
         actionPanelMapping = new ActionPanelMapping();
+        
+        // Initialiser la barre de santé (après avoir chargé characterPanelMapping)
+        // Positionnée en haut à gauche de l'écran
+        float healthBarScale = 4f; // Échelle pour agrandir la barre (augmenté de 2 à 4)
+        float healthBarX = 10f;
+        float healthBarY = Gdx.graphics.getHeight() - (30f * healthBarScale) - 10f; // 30 = hauteur du panel
+        healthBar = new HealthBar(healthBarX, healthBarY, healthBarScale, characterPanelMapping);
+        
+        // Initialiser la barre de shield (même position et scale que healthBar)
+        shieldBar = new ShieldBar(healthBarX, healthBarY, healthBarScale, characterPanelMapping);
     }
     
     @Override
@@ -132,16 +162,16 @@ public class GameScreen implements Screen {
         player.update(delta);
         
         // Initialiser la caméra sur le joueur après le premier rendu (quand on connaît sa taille)
-        if (!collisionsInitialized && player.getWidth() > 0 && player.getHeight() > 0) {
+        if (!cameraInitialized && player.getWidth() > 0 && player.getHeight() > 0) {
             updateCamera();
-            collisionsInitialized = true; // Réutiliser le flag pour l'initialisation de la caméra
+            cameraInitialized = true;
         }
         
-        // Initialiser les collisions après le premier rendu (quand on connaît les dimensions) - DÉSACTIVÉ
-        // if (!collisionsInitialized && mapLoader != null) {
-        //     initializeCollisions();
-        //     collisionsInitialized = true;
-        // }
+        // Initialiser les collisions après le premier rendu (quand on connaît les dimensions)
+        if (!collisionsInitialized && mapLoader != null && player.getWidth() > 0 && player.getHeight() > 0) {
+            initializeCollisions();
+            collisionsInitialized = true;
+        }
         
         // Gérer l'attaque du joueur sur l'ennemi - DÉSACTIVÉ TEMPORAIREMENT
         // handlePlayerAttack();
@@ -195,6 +225,34 @@ public class GameScreen implements Screen {
         // renderActionPanel();
         
         batch.end();
+        
+        // Dessiner les barres de santé et shield (en coordonnées écran)
+        if (player != null) {
+            float screenHeight = Gdx.graphics.getHeight();
+            
+            // Mettre à jour et dessiner la barre de santé
+            if (healthBar != null) {
+                healthBar.update(player.getHealth(), player.getMaxHealth());
+                healthBar.setPosition(10f, screenHeight - healthBar.getHeight() - 10f);
+            }
+            
+            // Mettre à jour et dessiner la barre de shield
+            if (shieldBar != null) {
+                shieldBar.update(player.getShield(), player.getMaxShield());
+                shieldBar.setPosition(10f, screenHeight - shieldBar.getHeight() - 10f);
+            }
+            
+            // Dessiner les barres avec SpriteBatch en coordonnées écran
+            batch.setProjectionMatrix(uiCamera.combined);
+            batch.begin();
+            if (healthBar != null) {
+                healthBar.render(batch);
+            }
+            if (shieldBar != null) {
+                shieldBar.render(batch);
+            }
+            batch.end();
+        }
     }
     
     /**
@@ -310,6 +368,18 @@ public class GameScreen implements Screen {
         // Récupérer la position actuelle du joueur
         float currentPlayerX = player.getX();
         float currentPlayerY = player.getY();
+        
+        // Zone où la caméra ne suit pas le joueur (entre x = 64 et x = 704)
+        float cameraStopZoneMinX = 64f;
+        float cameraStopZoneMaxX = 704f;
+        
+        // Vérifier si le joueur est dans la zone où la caméra ne suit pas
+        boolean inCameraStopZone = currentPlayerX >= cameraStopZoneMinX && currentPlayerX <= cameraStopZoneMaxX;
+        
+        // Si le joueur est dans la zone, ne pas mettre à jour la caméra
+        if (inCameraStopZone) {
+            return;
+        }
         
         // Vérifier si la position a changé (avec une tolérance pour éviter les micro-mouvements)
         float tolerance = 0.5f;
@@ -638,7 +708,10 @@ public class GameScreen implements Screen {
             CollisionHandler playerCollision = new CollisionHandler(
                 mapLoader, player.getWidth(), player.getHeight());
             player.getMovementHandler().setCollisionHandler(playerCollision);
-            Gdx.app.log("GameScreen", "Collisions initialisées pour le joueur");
+            Gdx.app.log("GameScreen", String.format("Collisions initialisées pour le joueur (%.1fx%.1f pixels)", 
+                player.getWidth(), player.getHeight()));
+        } else {
+            Gdx.app.log("GameScreen", "Impossible d'initialiser les collisions : dimensions du joueur invalides");
         }
         
         // Configurer les collisions pour l'ennemi - DÉSACTIVÉ TEMPORAIREMENT
@@ -670,6 +743,15 @@ public class GameScreen implements Screen {
         }
         if (batch != null) {
             batch.dispose();
+        }
+        if (shapeRenderer != null) {
+            shapeRenderer.dispose();
+        }
+        if (healthBar != null) {
+            healthBar.dispose();
+        }
+        if (shieldBar != null) {
+            shieldBar.dispose();
         }
     }
 }
