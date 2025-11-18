@@ -56,6 +56,9 @@ public class GameScreen implements Screen {
     // Flag pour savoir si les collisions ont été initialisées
     private boolean collisionsInitialized = false;
     
+    // Flag pour savoir si la caméra a été initialisée
+    private boolean cameraInitialized = false;
+    
     // Position précédente du joueur pour détecter les changements
     private float lastPlayerX = -1f;
     private float lastPlayerY = -1f;
@@ -132,16 +135,16 @@ public class GameScreen implements Screen {
         player.update(delta);
         
         // Initialiser la caméra sur le joueur après le premier rendu (quand on connaît sa taille)
-        if (!collisionsInitialized && player.getWidth() > 0 && player.getHeight() > 0) {
+        if (!cameraInitialized && player.getWidth() > 0 && player.getHeight() > 0) {
             updateCamera();
-            collisionsInitialized = true; // Réutiliser le flag pour l'initialisation de la caméra
+            cameraInitialized = true;
         }
         
-        // Initialiser les collisions après le premier rendu (quand on connaît les dimensions) - DÉSACTIVÉ
-        // if (!collisionsInitialized && mapLoader != null) {
-        //     initializeCollisions();
-        //     collisionsInitialized = true;
-        // }
+        // Initialiser les collisions après le premier rendu (quand on connaît les dimensions)
+        if (!collisionsInitialized && mapLoader != null && player.getWidth() > 0 && player.getHeight() > 0) {
+            initializeCollisions();
+            collisionsInitialized = true;
+        }
         
         // Gérer l'attaque du joueur sur l'ennemi - DÉSACTIVÉ TEMPORAIREMENT
         // handlePlayerAttack();
@@ -638,7 +641,10 @@ public class GameScreen implements Screen {
             CollisionHandler playerCollision = new CollisionHandler(
                 mapLoader, player.getWidth(), player.getHeight());
             player.getMovementHandler().setCollisionHandler(playerCollision);
-            Gdx.app.log("GameScreen", "Collisions initialisées pour le joueur");
+            Gdx.app.log("GameScreen", String.format("Collisions initialisées pour le joueur (%.1fx%.1f pixels)", 
+                player.getWidth(), player.getHeight()));
+        } else {
+            Gdx.app.log("GameScreen", "Impossible d'initialiser les collisions : dimensions du joueur invalides");
         }
         
         // Configurer les collisions pour l'ennemi - DÉSACTIVÉ TEMPORAIREMENT
