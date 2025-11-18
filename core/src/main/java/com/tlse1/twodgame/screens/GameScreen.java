@@ -6,6 +6,7 @@ import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.viewport.StretchViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.tlse1.twodgame.TwoDGame;
@@ -14,6 +15,7 @@ import com.tlse1.twodgame.entities.Inventory;
 import com.tlse1.twodgame.entities.Player;
 import com.tlse1.twodgame.entities.handlers.CollisionHandler;
 import com.tlse1.twodgame.managers.JsonMapLoader;
+import com.tlse1.twodgame.ui.HealthBar;
 import com.tlse1.twodgame.utils.ActionPanelMapping;
 import com.tlse1.twodgame.utils.CharacterPanelMapping;
 import com.tlse1.twodgame.utils.Direction;
@@ -26,7 +28,9 @@ public class GameScreen implements Screen {
     
     private TwoDGame game;
     private SpriteBatch batch;
+    private ShapeRenderer shapeRenderer;
     private OrthographicCamera camera;
+    private OrthographicCamera uiCamera;
     private Viewport viewport;
     private Player player;
     private Enemy enemy;
@@ -39,6 +43,9 @@ public class GameScreen implements Screen {
     
     // Action panel
     private ActionPanelMapping actionPanelMapping;
+    
+    // Health bar
+    private HealthBar healthBar;
     
     // Portée d'attaque du joueur
     private float playerAttackRange = 100f;
@@ -70,6 +77,7 @@ public class GameScreen implements Screen {
     @Override
     public void show() {
         batch = new SpriteBatch();
+        shapeRenderer = new ShapeRenderer();
         
         // Initialiser la caméra et le viewport
         // Définir la zone de la map à afficher (180x140 pixels)
@@ -81,6 +89,11 @@ public class GameScreen implements Screen {
         viewport = new StretchViewport(mapViewWidth, mapViewHeight, camera);
         viewport.apply();
         camera.update();
+        
+        // Initialiser la caméra UI pour les éléments d'interface (barre de santé)
+        uiCamera = new OrthographicCamera();
+        uiCamera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        uiCamera.update();
         
         Gdx.app.log("GameScreen", String.format("Caméra configurée: vue de %.0fx%.0f pixels de la map (étirée pour remplir l'écran)", 
             mapViewWidth, mapViewHeight));
@@ -112,6 +125,13 @@ public class GameScreen implements Screen {
         
         // Charger l'action panel
         actionPanelMapping = new ActionPanelMapping();
+        
+        // Initialiser la barre de santé (après avoir chargé characterPanelMapping)
+        // Positionnée en haut à gauche de l'écran
+        float healthBarScale = 4f; // Échelle pour agrandir la barre (augmenté de 2 à 4)
+        float healthBarX = 10f;
+        float healthBarY = Gdx.graphics.getHeight() - (30f * healthBarScale) - 10f; // 30 = hauteur du panel
+        healthBar = new HealthBar(healthBarX, healthBarY, healthBarScale, characterPanelMapping);
     }
     
     @Override
@@ -198,6 +218,22 @@ public class GameScreen implements Screen {
         // renderActionPanel();
         
         batch.end();
+        
+        // Dessiner la barre de santé (en coordonnées écran)
+        if (player != null && healthBar != null) {
+            // Mettre à jour la barre avec la santé actuelle du joueur
+            healthBar.update(player.getHealth(), player.getMaxHealth());
+            
+            // Mettre à jour la position Y de la barre en cas de redimensionnement
+            float screenHeight = Gdx.graphics.getHeight();
+            healthBar.setPosition(10f, screenHeight - healthBar.getHeight() - 10f);
+            
+            // Dessiner la barre avec SpriteBatch en coordonnées écran
+            batch.setProjectionMatrix(uiCamera.combined);
+            batch.begin();
+            healthBar.render(batch);
+            batch.end();
+        }
     }
     
     /**
@@ -676,6 +712,12 @@ public class GameScreen implements Screen {
         }
         if (batch != null) {
             batch.dispose();
+        }
+        if (shapeRenderer != null) {
+            shapeRenderer.dispose();
+        }
+        if (healthBar != null) {
+            healthBar.dispose();
         }
     }
 }
