@@ -369,18 +369,6 @@ public class GameScreen implements Screen {
         float currentPlayerX = player.getX();
         float currentPlayerY = player.getY();
         
-        // Zone où la caméra ne suit pas le joueur (entre x = 64 et x = 704)
-        float cameraStopZoneMinX = 64f;
-        float cameraStopZoneMaxX = 704f;
-        
-        // Vérifier si le joueur est dans la zone où la caméra ne suit pas
-        boolean inCameraStopZone = currentPlayerX >= cameraStopZoneMinX && currentPlayerX <= cameraStopZoneMaxX;
-        
-        // Si le joueur est dans la zone, ne pas mettre à jour la caméra
-        if (inCameraStopZone) {
-            return;
-        }
-        
         // Vérifier si la position a changé (avec une tolérance pour éviter les micro-mouvements)
         float tolerance = 0.5f;
         boolean positionChanged = Math.abs(currentPlayerX - lastPlayerX) > tolerance || 
@@ -392,8 +380,21 @@ public class GameScreen implements Screen {
             float playerCenterX = currentPlayerX + player.getWidth() / 2f;
             float playerCenterY = currentPlayerY + player.getHeight() / 2f;
             
-            // Positionner la caméra pour centrer le joueur
-            camera.position.set(playerCenterX, playerCenterY, 0);
+            // Limites de la caméra pour qu'elle ne sorte pas de la map (800x640 px)
+            // La caméra fait 180x140 px, donc :
+            // - Largeur : 90px < camera.x < 710px (pour ne pas voir les bords)
+            // - Hauteur : 70px < camera.y < 570px (pour ne pas voir les bords)
+            float cameraMinX = 90f;
+            float cameraMaxX = 710f;
+            float cameraMinY = 70f;
+            float cameraMaxY = 570f;
+            
+            // Clamper la position de la caméra dans les limites
+            float clampedCameraX = Math.max(cameraMinX, Math.min(cameraMaxX, playerCenterX));
+            float clampedCameraY = Math.max(cameraMinY, Math.min(cameraMaxY, playerCenterY));
+            
+            // Positionner la caméra (clampée si nécessaire)
+            camera.position.set(clampedCameraX, clampedCameraY, 0);
             
             // Mettre à jour la position précédente
             lastPlayerX = currentPlayerX;
