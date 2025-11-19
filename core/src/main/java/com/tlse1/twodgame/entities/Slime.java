@@ -48,8 +48,10 @@ public class Slime extends Enemy {
     public Slime(float x, float y) {
         super(x, y);
         
-        // Configurer la vitesse du slime (plus lent que le vampire)
-        setSpeed(80f);
+        // Configurer la vitesse du slime (1/4 de la vitesse du joueur)
+        // Le joueur a une vitesse de 150 pixels/seconde, donc 150 / 4 = 37.5
+        float playerSpeed = 150f;
+        setSpeed(playerSpeed / 4f); // 37.5 pixels/seconde
         
         // Configurer la santé du slime (moins que le vampire)
         combatHandler.setMaxHealth(50);

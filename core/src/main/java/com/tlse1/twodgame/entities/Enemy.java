@@ -56,11 +56,12 @@ public class Enemy extends Character {
         // Configurer la vitesse
         movementHandler.setSpeed(speed);
         
-        // Charger toutes les animations
-        loadAnimations();
+        // Ne pas charger les animations ici - les sous-classes (Vampire, Slime) le feront
+        // après avoir initialisé leurs propriétés spécifiques (level, etc.)
+        // loadAnimations();
         
-        // Définir l'animation par défaut
-        animationHandler.update(0f);
+        // Définir l'animation par défaut (sera fait après le chargement des animations dans les sous-classes)
+        // animationHandler.update(0f);
     }
     
     /**
@@ -130,6 +131,11 @@ public class Enemy extends Character {
      * @param deltaTime Temps écoulé depuis la dernière frame
      */
     public void updateAI(float deltaTime) {
+        // Si l'ennemi est mort, ne pas mettre à jour l'IA
+        if (isDead()) {
+            return;
+        }
+        
         if (target == null || !target.isAlive()) {
             // Pas de cible ou cible morte, rester en idle DOWN
             animationHandler.setCurrentDirection(Direction.DOWN);
@@ -144,8 +150,23 @@ public class Enemy extends Character {
         }
         
         // Vérifier que les dimensions sont initialisées
-        if (getWidth() <= 0 || getHeight() <= 0 || target.getWidth() <= 0 || target.getHeight() <= 0) {
-            // Dimensions pas encore initialisées, rester en idle DOWN
+        // Si les dimensions ne sont pas encore initialisées, attendre
+        if (getWidth() <= 0 || getHeight() <= 0) {
+            // L'ennemi n'a pas encore de dimensions, attendre
+            // Log pour déboguer
+            if (this instanceof Vampire) {
+                Vampire v = (Vampire) this;
+                Gdx.app.log("Enemy", String.format("Vampire niveau %d: dimensions pas encore initialisées (%.1fx%.1f)", 
+                    v.getLevel(), getWidth(), getHeight()));
+            }
+            animationHandler.setCurrentDirection(Direction.DOWN);
+            animationHandler.setMoving(false);
+            animationHandler.setRunning(false);
+            return;
+        }
+        
+        // Si le joueur n'a pas encore de dimensions, attendre aussi
+        if (target.getWidth() <= 0 || target.getHeight() <= 0) {
             animationHandler.setCurrentDirection(Direction.DOWN);
             animationHandler.setMoving(false);
             animationHandler.setRunning(false);

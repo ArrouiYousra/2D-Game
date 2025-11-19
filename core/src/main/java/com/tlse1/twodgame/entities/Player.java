@@ -51,9 +51,9 @@ public class Player extends Character {
     public Player(float x, float y) {
         super(x, y);
         
-        // Configurer la santé du joueur (5 HP)
-        combatHandler.setMaxHealth(5);
-        combatHandler.setHealth(5);
+        // Configurer la santé du joueur (50 HP)
+        combatHandler.setMaxHealth(50);
+        combatHandler.setHealth(50);
         
         // Configurer le shield du joueur (3 shield max pour tester)
         combatHandler.setMaxShield(3);
