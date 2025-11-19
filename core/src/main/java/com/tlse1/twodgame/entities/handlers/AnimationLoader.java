@@ -69,9 +69,18 @@ public class AnimationLoader {
             createAndAddAnimation(handler, sideSprites, Direction.SIDE, texture, frameDuration, animationType, looping);
             createAndAddAnimation(handler, upSprites, Direction.UP, texture, frameDuration, animationType, looping);
             
+            // Compter le nombre de directions avec des sprites
+            int directionsCount = 0;
+            if (!downSprites.isEmpty()) directionsCount++;
+            if (!sideLeftSprites.isEmpty()) directionsCount++;
+            if (!sideSprites.isEmpty()) directionsCount++;
+            if (!upSprites.isEmpty()) directionsCount++;
+            
+            // Compter le nombre total de sprites
+            int totalSprites = downSprites.size() + sideLeftSprites.size() + sideSprites.size() + upSprites.size();
+            
             Gdx.app.log("AnimationLoader", String.format(
-                "Animation %s chargée: %d directions", animationType, 
-                downSprites.size() + sideLeftSprites.size() + sideSprites.size() + upSprites.size()));
+                "Animation %s chargée: %d directions, %d sprites au total", animationType, directionsCount, totalSprites));
             
         } catch (Exception e) {
             Gdx.app.error("AnimationLoader", "Erreur lors du chargement de l'animation " + animationType, e);
@@ -86,8 +95,16 @@ public class AnimationLoader {
             return;
         }
         
-        TextureRegion[] frames = new TextureRegion[sprites.size()];
+        // Pour les animations de mort des vampires 2 et 3, ajouter un 12e sprite vide
+        // pour que l'animation se termine correctement et que le vampire disparaisse
+        int expectedSpritesPerDirection = 12;
+        int actualSprites = sprites.size();
+        boolean needsEmptySprite = animationType.equals("death") && actualSprites < expectedSpritesPerDirection;
         
+        int totalFrames = needsEmptySprite ? expectedSpritesPerDirection : actualSprites;
+        TextureRegion[] frames = new TextureRegion[totalFrames];
+        
+        // Charger tous les sprites existants
         for (int i = 0; i < sprites.size(); i++) {
             JsonValue sprite = sprites.get(i);
             int x = sprite.getInt("x");
@@ -96,6 +113,18 @@ public class AnimationLoader {
             int height = sprite.getInt("height");
             
             frames[i] = new TextureRegion(texture, x, y, width, height);
+        }
+        
+        // Ajouter un sprite vide (12e frame) pour les animations de mort avec 11 sprites
+        // Cela permet à l'animation de se terminer correctement et au vampire de disparaître
+        if (needsEmptySprite) {
+            // Dupliquer le dernier sprite comme 12e frame
+            // Quand l'animation atteint cette frame, elle se termine et le vampire disparaît
+            frames[actualSprites] = new TextureRegion(frames[actualSprites - 1]);
+            
+            Gdx.app.log("AnimationLoader", String.format(
+                "Animation %s (%s): Ajout d'un 12e sprite (dupliqué) pour compléter l'animation (avait %d sprites)",
+                animationType, direction, actualSprites));
         }
         
         Animation<TextureRegion> animation = new Animation<>(frameDuration, frames);

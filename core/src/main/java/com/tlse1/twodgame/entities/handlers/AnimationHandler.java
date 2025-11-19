@@ -138,6 +138,20 @@ public class AnimationHandler {
         
         Animation<TextureRegion> newAnimation = animations.get(currentDirection);
         
+        // Log si aucune animation trouvée (pour déboguer)
+        if (newAnimation == null && !animations.isEmpty()) {
+            // Essayer de trouver une animation dans une autre direction comme fallback
+            for (Direction dir : Direction.values()) {
+                Animation<TextureRegion> fallback = animations.get(dir);
+                if (fallback != null) {
+                    newAnimation = fallback;
+                    Gdx.app.log("AnimationHandler", String.format("Animation non trouvée pour direction %s, utilisation de %s comme fallback", 
+                        currentDirection, dir));
+                    break;
+                }
+            }
+        }
+        
         // Fallbacks
         if (newAnimation == null && isAttacking && isMoving && isRunning) {
             newAnimation = walkAttackAnimations.get(currentDirection);
@@ -200,6 +214,11 @@ public class AnimationHandler {
         if (isDead) {
             animTime = stateTime;
             looping = false;
+            
+            // Si l'animation de mort est terminée, ne pas rendre le personnage (il disparaît)
+            if (currentAnimation != null && stateTime >= currentAnimation.getAnimationDuration()) {
+                return new float[]{0, 0};
+            }
         } else if (isHurt) {
             animTime = hurtStateTime;
             looping = false;
@@ -376,6 +395,15 @@ public class AnimationHandler {
     
     public boolean isDead() {
         return isDead;
+    }
+    
+    /**
+     * Retourne l'animation actuelle (pour déboguer).
+     * 
+     * @return L'animation actuelle, ou null si aucune
+     */
+    public Animation<TextureRegion> getCurrentAnimation() {
+        return currentAnimation;
     }
     
     public void setDead(boolean dead) {

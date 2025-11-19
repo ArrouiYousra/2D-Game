@@ -11,12 +11,16 @@ import java.util.Map;
 
 /**
  * Classe représentant un slime ennemi dans le jeu.
- * Hérite de Enemy et charge les animations du slime1.
+ * Hérite de Enemy et charge les animations selon le niveau (1, 2 ou 3).
  */
 public class Slime extends Enemy {
     
+    // Niveau du slime (1, 2 ou 3)
+    private int level;
+    
     // Hitboxes dynamiques pour l'animation d'attaque
     // Mapping : direction + frameIndex -> hitbox {width, height}
+    // Tous les slimes utilisent le même fichier slims_hitbox.json
     private Map<String, HitboxData> attackHitboxes;
     
     /**
@@ -33,23 +37,37 @@ public class Slime extends Enemy {
     }
     
     /**
-     * Constructeur par défaut.
+     * Constructeur par défaut (niveau 1).
      */
     public Slime() {
-        this(0, 0);
+        this(0, 0, 1);
     }
     
     /**
-     * Constructeur avec position.
+     * Constructeur avec position (niveau 1 par défaut).
      * 
      * @param x Position X initiale
      * @param y Position Y initiale
      */
     public Slime(float x, float y) {
+        this(x, y, 1);
+    }
+    
+    /**
+     * Constructeur avec position et niveau.
+     * 
+     * @param x Position X initiale
+     * @param y Position Y initiale
+     * @param level Niveau du slime (1, 2 ou 3)
+     */
+    public Slime(float x, float y, int level) {
         super(x, y);
+        this.level = level;
         
-        // Configurer la vitesse du slime (plus lent que le vampire)
-        setSpeed(80f);
+        // Configurer la vitesse du slime (1/4 de la vitesse du joueur)
+        // Le joueur a une vitesse de 150 pixels/seconde, donc 150 / 4 = 37.5
+        float playerSpeed = 150f;
+        setSpeed(playerSpeed / 4f); // 37.5 pixels/seconde
         
         // Configurer la santé du slime (moins que le vampire)
         combatHandler.setMaxHealth(50);
@@ -84,49 +102,63 @@ public class Slime extends Enemy {
     }
     
     /**
-     * Charge toutes les animations du slime depuis les fichiers JSON.
+     * Charge toutes les animations du slime depuis les fichiers JSON selon le niveau.
      * Les sprites sont organisés en grille : 4 lignes (directions) x N colonnes
      * Ligne 1 (y=0-63): DOWN, Ligne 2 (y=64-127): UP, Ligne 3 (y=128-191): LEFT, Ligne 4 (y=192-255): RIGHT
      * yRanges format: [DOWN_MIN, DOWN_MAX, SIDE_LEFT_MIN, SIDE_LEFT_MAX, SIDE_MIN, SIDE_MAX, UP_MIN, UP_MAX]
      */
     @Override
     protected void loadAnimations() {
-        // Idle: 6 sprites par direction
-        // yRanges: [DOWN: 0-63, SIDE_LEFT: 128-191, SIDE: 192-255, UP: 64-127]
-        AnimationLoader.loadAnimation(animationHandler,
-            "slims/PNG/slim1_idle.json",
-            "slims/PNG/Slime1/With_shadow/Slime1_Idle_with_shadow.png",
-            "idle", 0.15f, new int[]{0, 63, 128, 191, 192, 255, 64, 127}, true);
+        String slimePrefix = "slims/PNG/Slime" + level;
+        String jsonPrefix = "slims/PNG/Slime" + level;
         
-        // Walk: 8 sprites par direction
-        AnimationLoader.loadAnimation(animationHandler,
-            "slims/PNG/slim1_walk.json",
-            "slims/PNG/Slime1/With_shadow/Slime1_Walk_with_shadow.png",
-            "walk", 0.12f, new int[]{0, 63, 128, 191, 192, 255, 64, 127}, true);
+        // Note: Le slime 1 utilise "slim1_" tandis que les slimes 2 et 3 utilisent "slime2_" et "slime3_"
+        String jsonNamePrefix = (level == 1) ? "slim" : "slime";
         
-        // Run: 8 sprites par direction
-        AnimationLoader.loadAnimation(animationHandler,
-            "slims/PNG/slim1_run.json",
-            "slims/PNG/Slime1/With_shadow/Slime1_Run_with_shadow.png",
-            "run", 0.10f, new int[]{0, 63, 128, 191, 192, 255, 64, 127}, true);
+        // yRanges pour les slimes : 
+        // Ligne 1 (y=0-63): DOWN
+        // Ligne 2 (y=64-127): UP
+        // Ligne 3 (y=128-191): GAUCHE (SIDE_LEFT)
+        // Ligne 4 (y=192-255): DROITE (SIDE)
+        int[] yRanges = new int[]{0, 63, 128, 191, 192, 255, 64, 127};
         
-        // Attack: 10 sprites par direction
+        // Idle
         AnimationLoader.loadAnimation(animationHandler,
-            "slims/PNG/slim1_attack.json",
-            "slims/PNG/Slime1/With_shadow/Slime1_Attack_with_shadow.png",
-            "attack", 0.08f, new int[]{0, 63, 128, 191, 192, 255, 64, 127}, false);
+            jsonPrefix + "/" + jsonNamePrefix + level + "_idle.json",
+            slimePrefix + "/With_shadow/Slime" + level + "_Idle_with_shadow.png",
+            "idle", 0.15f, yRanges, true);
         
-        // Hurt: 5 sprites par direction
+        // Walk
         AnimationLoader.loadAnimation(animationHandler,
-            "slims/PNG/slim1_hurt.json",
-            "slims/PNG/Slime1/With_shadow/Slime1_Hurt_with_shadow.png",
-            "hurt", 0.1f, new int[]{0, 63, 128, 191, 192, 255, 64, 127}, false);
+            jsonPrefix + "/" + jsonNamePrefix + level + "_walk.json",
+            slimePrefix + "/With_shadow/Slime" + level + "_Walk_with_shadow.png",
+            "walk", 0.12f, yRanges, true);
         
-        // Death: 10 sprites par direction
+        // Run
         AnimationLoader.loadAnimation(animationHandler,
-            "slims/PNG/slim1_death.json",
-            "slims/PNG/Slime1/With_shadow/Slime1_Death_with_shadow.png",
-            "death", 0.15f, new int[]{0, 63, 128, 191, 192, 255, 64, 127}, false);
+            jsonPrefix + "/" + jsonNamePrefix + level + "_run.json",
+            slimePrefix + "/With_shadow/Slime" + level + "_Run_with_shadow.png",
+            "run", 0.10f, yRanges, true);
+        
+        // Attack
+        AnimationLoader.loadAnimation(animationHandler,
+            jsonPrefix + "/" + jsonNamePrefix + level + "_attack.json",
+            slimePrefix + "/With_shadow/Slime" + level + "_Attack_with_shadow.png",
+            "attack", 0.08f, yRanges, false);
+        
+        // Hurt
+        AnimationLoader.loadAnimation(animationHandler,
+            jsonPrefix + "/" + jsonNamePrefix + level + "_hurt.json",
+            slimePrefix + "/With_shadow/Slime" + level + "_Hurt_with_shadow.png",
+            "hurt", 0.1f, yRanges, false);
+        
+        // Death
+        AnimationLoader.loadAnimation(animationHandler,
+            jsonPrefix + "/" + jsonNamePrefix + level + "_death.json",
+            slimePrefix + "/With_shadow/Slime" + level + "_Death_with_shadow.png",
+            "death", 0.15f, yRanges, false);
+        
+        Gdx.app.log("Slime", String.format("Slime niveau %d: animations chargées", level));
     }
     
     /**
