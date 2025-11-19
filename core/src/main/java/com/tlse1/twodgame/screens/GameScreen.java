@@ -13,6 +13,7 @@ import com.tlse1.twodgame.TwoDGame;
 import com.tlse1.twodgame.entities.Enemy;
 import com.tlse1.twodgame.entities.Inventory;
 import com.tlse1.twodgame.entities.Player;
+import com.tlse1.twodgame.entities.Projectile;
 import com.tlse1.twodgame.entities.Slime;
 import com.tlse1.twodgame.entities.Vampire;
 import java.util.ArrayList;
@@ -39,6 +40,7 @@ public class GameScreen implements Screen {
     private Player player;
     private Enemy enemy; // Ancien ennemi (vampire) - gardé pour compatibilité
     private ArrayList<Enemy> enemies; // Liste des ennemis (slimes, vampires, etc.)
+    private ArrayList<Projectile> projectiles; // Liste des projectiles (vampires)
     
     // Map
     private JsonMapLoader mapLoader;
@@ -128,48 +130,49 @@ public class GameScreen implements Screen {
         // Initialiser la liste des ennemis
         enemies = new ArrayList<>();
         
-        // Spawn des slimes de test (niveaux 1, 2 et 3) à côté du joueur
-        // Position du joueur : (32, 50)
-        // Placer les slimes autour du joueur
-        float playerX = playerStartX;
-        float playerY = playerStartY;
+        // Initialiser la liste des projectiles
+        projectiles = new ArrayList<>();
         
-        // Slime niveau 1 - à gauche du joueur
-        Slime slime1 = new Slime(playerX - 32f, playerY, 1);
+        // Spawn des slimes aux positions stratégiques
+        // Slime niveau 1
+        Slime slime1 = new Slime(64f, 448f, 1);
         slime1.setTarget(player);
         enemies.add(slime1);
-        Gdx.app.log("GameScreen", String.format("Slime niveau 1 créé à (%.0f, %.0f)", playerX - 32f, playerY));
+        Gdx.app.log("GameScreen", "Slime niveau 1 créé à (64, 448)");
         
-        // Slime niveau 2 - à droite du joueur
-        Slime slime2 = new Slime(playerX + 32f, playerY, 2);
+        // Slime niveau 2
+        Slime slime2 = new Slime(160f, 192f, 2);
         slime2.setTarget(player);
         enemies.add(slime2);
-        Gdx.app.log("GameScreen", String.format("Slime niveau 2 créé à (%.0f, %.0f)", playerX + 32f, playerY));
+        Gdx.app.log("GameScreen", "Slime niveau 2 créé à (160, 192)");
         
-        // Slime niveau 3 - en haut du joueur
-        Slime slime3 = new Slime(playerX, playerY + 32f, 3);
+        // Slime niveau 3
+        Slime slime3 = new Slime(64f, 352f, 3);
         slime3.setTarget(player);
         enemies.add(slime3);
-        Gdx.app.log("GameScreen", String.format("Slime niveau 3 créé à (%.0f, %.0f)", playerX, playerY + 32f));
+        Gdx.app.log("GameScreen", "Slime niveau 3 créé à (64, 352)");
         
-        // Spawn des vampires de test (niveaux 1, 2 et 3)
+        // Spawn des vampires aux positions stratégiques
         // Vampire niveau 1
-        Vampire vampire1 = new Vampire(100f, 200f, 1);
+        Vampire vampire1 = new Vampire(192f, 320f, 1);
         vampire1.setTarget(player);
+        vampire1.setMapLoader(mapLoader); // Passer la référence à la map pour les projectiles
         enemies.add(vampire1);
-        Gdx.app.log("GameScreen", "Vampire niveau 1 créé à (100, 200)");
+        Gdx.app.log("GameScreen", "Vampire niveau 1 créé à (192, 320)");
         
         // Vampire niveau 2
-        Vampire vampire2 = new Vampire(200f, 200f, 2);
+        Vampire vampire2 = new Vampire(640f, 416f, 2);
         vampire2.setTarget(player);
+        vampire2.setMapLoader(mapLoader); // Passer la référence à la map pour les projectiles
         enemies.add(vampire2);
-        Gdx.app.log("GameScreen", "Vampire niveau 2 créé à (200, 200)");
+        Gdx.app.log("GameScreen", "Vampire niveau 2 créé à (640, 416)");
         
         // Vampire niveau 3
-        Vampire vampire3 = new Vampire(300f, 200f, 3);
+        Vampire vampire3 = new Vampire(672f, 192f, 3);
         vampire3.setTarget(player);
+        vampire3.setMapLoader(mapLoader); // Passer la référence à la map pour les projectiles
         enemies.add(vampire3);
-        Gdx.app.log("GameScreen", "Vampire niveau 3 créé à (300, 200)");
+        Gdx.app.log("GameScreen", "Vampire niveau 3 créé à (672, 192)");
         
         // Les collisions seront configurées après le premier rendu
         // quand on connaîtra les dimensions réelles des entités
@@ -219,8 +222,43 @@ public class GameScreen implements Screen {
                     enemy.update(delta);
                     // Mettre à jour l'IA seulement si l'ennemi et le joueur sont vivants
                     if (enemy.isAlive() && player.isAlive()) {
+                        // Vérifier si l'ennemi attaque avant updateAI (pour détecter le début d'attaque)
+                        boolean wasAttacking = enemy.isAttacking();
                         enemy.updateAI(delta); // Activer l'IA de poursuite
+                        
+                        // Si l'ennemi vient de commencer à attaquer (n'attaquait pas avant, attaque maintenant)
+                        // et que c'est un vampire, créer un projectile
+                        if (enemy.isAttacking() && !wasAttacking && enemy instanceof Vampire) {
+                            Projectile projectile = enemy.createProjectileOnAttack();
+                            if (projectile != null) {
+                                projectiles.add(projectile);
+                                Gdx.app.log("GameScreen", String.format("Projectile créé par un vampire à (%.1f, %.1f)", 
+                                    projectile.getX(), projectile.getY()));
+                            }
+                        }
                     }
+                }
+            }
+        }
+        
+        // Mettre à jour les projectiles
+        if (projectiles != null) {
+            for (int i = projectiles.size() - 1; i >= 0; i--) {
+                Projectile projectile = projectiles.get(i);
+                if (projectile != null && projectile.isActive()) {
+                    projectile.update(delta);
+                    
+                    // Vérifier la collision avec le joueur
+                    if (player != null && player.isAlive()) {
+                        projectile.checkPlayerCollision(player);
+                    }
+                    
+                    // Supprimer les projectiles inactifs
+                    if (!projectile.isActive()) {
+                        projectiles.remove(i);
+                    }
+                } else {
+                    projectiles.remove(i);
                 }
             }
         }
@@ -299,6 +337,22 @@ public class GameScreen implements Screen {
         // renderActionPanel();
         
         batch.end();
+        
+        // Dessiner les projectiles (rectangles 1x1 pixels)
+        if (projectiles != null && shapeRenderer != null) {
+            shapeRenderer.setProjectionMatrix(camera.combined);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            shapeRenderer.setColor(1f, 0f, 0f, 1f); // Rouge pour les projectiles
+            
+            for (Projectile projectile : projectiles) {
+                if (projectile != null && projectile.isActive()) {
+                    shapeRenderer.rect(projectile.getX(), projectile.getY(), 
+                                      projectile.getWidth(), projectile.getHeight());
+                }
+            }
+            
+            shapeRenderer.end();
+        }
         
         // Dessiner les hitboxes pour le débogage (rectangles rouges) - DÉSACTIVÉ
         // drawHitboxes();
