@@ -128,13 +128,29 @@ public class GameScreen implements Screen {
         // Initialiser la liste des ennemis
         enemies = new ArrayList<>();
         
-        // Spawn 1 slime pour tester
-        float slimeX = 16f;
-        float slimeY = 288f;
+        // Spawn des slimes de test (niveaux 1, 2 et 3) à côté du joueur
+        // Position du joueur : (32, 50)
+        // Placer les slimes autour du joueur
+        float playerX = playerStartX;
+        float playerY = playerStartY;
         
-        Slime slime = new Slime(slimeX, slimeY);
-        slime.setTarget(player); // Le slime cible le joueur
-        enemies.add(slime);
+        // Slime niveau 1 - à gauche du joueur
+        Slime slime1 = new Slime(playerX - 32f, playerY, 1);
+        slime1.setTarget(player);
+        enemies.add(slime1);
+        Gdx.app.log("GameScreen", String.format("Slime niveau 1 créé à (%.0f, %.0f)", playerX - 32f, playerY));
+        
+        // Slime niveau 2 - à droite du joueur
+        Slime slime2 = new Slime(playerX + 32f, playerY, 2);
+        slime2.setTarget(player);
+        enemies.add(slime2);
+        Gdx.app.log("GameScreen", String.format("Slime niveau 2 créé à (%.0f, %.0f)", playerX + 32f, playerY));
+        
+        // Slime niveau 3 - en haut du joueur
+        Slime slime3 = new Slime(playerX, playerY + 32f, 3);
+        slime3.setTarget(player);
+        enemies.add(slime3);
+        Gdx.app.log("GameScreen", String.format("Slime niveau 3 créé à (%.0f, %.0f)", playerX, playerY + 32f));
         
         // Spawn des vampires de test (niveaux 1, 2 et 3)
         // Vampire niveau 1
