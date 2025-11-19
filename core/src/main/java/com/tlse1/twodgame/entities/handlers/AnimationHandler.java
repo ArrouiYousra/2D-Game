@@ -225,6 +225,78 @@ public class AnimationHandler {
     }
     
     /**
+     * Obtient l'index de la frame actuelle de l'animation.
+     * 
+     * @return Index de la frame actuelle, ou -1 si aucune animation
+     */
+    public int getCurrentFrameIndex() {
+        if (currentAnimation == null) {
+            return -1;
+        }
+        
+        float animTime;
+        boolean looping;
+        
+        if (isDead) {
+            animTime = stateTime;
+            looping = false;
+        } else if (isHurt) {
+            animTime = hurtStateTime;
+            looping = false;
+        } else if (isAttacking) {
+            animTime = attackStateTime;
+            looping = false;
+        } else {
+            animTime = stateTime;
+            looping = true;
+        }
+        
+        return currentAnimation.getKeyFrameIndex(animTime);
+    }
+    
+    /**
+     * Vérifie si l'animation actuelle est une animation d'attaque.
+     * 
+     * @return true si en train d'attaquer
+     */
+    public boolean isAttackAnimation() {
+        return isAttacking && currentAnimation != null && 
+               (attackAnimations.containsValue(currentAnimation) ||
+                walkAttackAnimations.containsValue(currentAnimation) ||
+                runAttackAnimations.containsValue(currentAnimation));
+    }
+    
+    /**
+     * Obtient le type d'animation d'attaque actuelle.
+     * 
+     * @return "attack", "walk_attack", "run_attack", ou null si pas en attaque
+     */
+    public String getAttackAnimationType() {
+        if (!isAttacking || currentAnimation == null) {
+            return null;
+        }
+        
+        // Vérifier dans l'ordre de priorité : run_attack > walk_attack > attack
+        for (Animation<TextureRegion> anim : runAttackAnimations.values()) {
+            if (anim == currentAnimation) {
+                return "run_attack";
+            }
+        }
+        for (Animation<TextureRegion> anim : walkAttackAnimations.values()) {
+            if (anim == currentAnimation) {
+                return "walk_attack";
+            }
+        }
+        for (Animation<TextureRegion> anim : attackAnimations.values()) {
+            if (anim == currentAnimation) {
+                return "attack";
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
      * Libère les ressources.
      */
     public void dispose() {
