@@ -13,6 +13,8 @@ import com.tlse1.twodgame.TwoDGame;
 import com.tlse1.twodgame.entities.Enemy;
 import com.tlse1.twodgame.entities.Inventory;
 import com.tlse1.twodgame.entities.Player;
+import com.tlse1.twodgame.entities.Slime;
+import java.util.ArrayList;
 import com.tlse1.twodgame.entities.handlers.CollisionHandler;
 import com.tlse1.twodgame.managers.JsonMapLoader;
 import com.tlse1.twodgame.ui.HealthBar;
@@ -34,7 +36,8 @@ public class GameScreen implements Screen {
     private OrthographicCamera uiCamera;
     private Viewport viewport;
     private Player player;
-    private Enemy enemy;
+    private Enemy enemy; // Ancien ennemi (vampire) - gardé pour compatibilité
+    private ArrayList<Enemy> enemies; // Liste des ennemis (slimes, vampires, etc.)
     
     // Map
     private JsonMapLoader mapLoader;
@@ -108,9 +111,9 @@ public class GameScreen implements Screen {
         // Créer le joueur et le positionner en bas à gauche de la map
         player = new Player(0, 0);
         
-        // Positionner le joueur en bas à gauche de la map (offset pour qu'il ne soit pas collé au bord)
-        float playerStartX = 50f; // Offset depuis le bord gauche
-        float playerStartY = 50f; // Offset depuis le bas
+        // Positionner le joueur sur la map
+        float playerStartX = 32f; // Position X initiale
+        float playerStartY = 50f; // Position Y initiale
         player.setX(playerStartX);
         player.setY(playerStartY);
         
@@ -120,6 +123,17 @@ public class GameScreen implements Screen {
         // Créer l'ennemi (vampire) - DÉSACTIVÉ TEMPORAIREMENT
         // enemy = new Enemy(screenWidth * 0.2f, screenHeight * 0.2f);
         // enemy.setTarget(player); // L'ennemi cible le joueur
+        
+        // Initialiser la liste des ennemis
+        enemies = new ArrayList<>();
+        
+        // Spawn 1 slime pour tester
+        float slimeX = 16f;
+        float slimeY = 288f;
+        
+        Slime slime = new Slime(slimeX, slimeY);
+        slime.setTarget(player); // Le slime cible le joueur
+        enemies.add(slime);
         
         // Les collisions seront configurées après le premier rendu
         // quand on connaîtra les dimensions réelles des entités
@@ -161,6 +175,16 @@ public class GameScreen implements Screen {
         // Mettre à jour le joueur (même s'il est mort, pour l'animation de mort)
         player.update(delta);
         
+        // Mettre à jour les ennemis (IA de poursuite)
+        if (enemies != null && player.isAlive()) {
+            for (Enemy enemy : enemies) {
+                if (enemy != null && enemy.isAlive()) {
+                    enemy.update(delta);
+                    enemy.updateAI(delta); // Activer l'IA de poursuite
+                }
+            }
+        }
+        
         // Initialiser la caméra sur le joueur après le premier rendu (quand on connaît sa taille)
         if (!cameraInitialized && player.getWidth() > 0 && player.getHeight() > 0) {
             updateCamera();
@@ -173,8 +197,8 @@ public class GameScreen implements Screen {
             collisionsInitialized = true;
         }
         
-        // Gérer l'attaque du joueur sur l'ennemi - DÉSACTIVÉ TEMPORAIREMENT
-        // handlePlayerAttack();
+        // Gérer l'attaque du joueur sur l'ennemi
+        handlePlayerAttack();
         
         // Vérifier si l'ennemi est mort et ajouter des items à l'inventaire - DÉSACTIVÉ TEMPORAIREMENT
         // checkEnemyDeath();
@@ -213,7 +237,17 @@ public class GameScreen implements Screen {
         
         // Afficher le joueur même s'il est mort (pour voir l'animation de mort)
         player.render(batch);
-        // Afficher l'ennemi - DÉSACTIVÉ TEMPORAIREMENT
+        
+        // Afficher les ennemis
+        if (enemies != null) {
+            for (Enemy enemy : enemies) {
+                if (enemy != null) {
+                    enemy.render(batch);
+                }
+            }
+        }
+        
+        // Afficher l'ennemi (vampire) - DÉSACTIVÉ TEMPORAIREMENT
         // if (enemy != null) {
         //     enemy.render(batch);
         // }
@@ -306,26 +340,79 @@ public class GameScreen implements Screen {
     }
     
     /**
-     * Gère l'attaque du joueur sur l'ennemi.
-     * Inflige des dégâts si le joueur attaque et est proche de l'ennemi.
+     * Gère l'attaque du joueur sur les ennemis.
+     * Utilise les hitboxes d'attaque dynamiques du joueur pour détecter les collisions.
      */
     private void handlePlayerAttack() {
-        if (enemy == null || !enemy.isAlive() || !player.isAlive()) {
+        if (!player.isAlive() || enemies == null || enemies.isEmpty()) {
             return;
         }
         
         // Vérifier si le joueur est en train d'attaquer
-        if (player.isAttacking() && playerAttackCooldown <= 0) {
-            // Calculer la distance à l'ennemi
-            float dx = enemy.getX() - player.getX();
-            float dy = enemy.getY() - player.getY();
-            float distance = (float) Math.sqrt(dx * dx + dy * dy);
+        if (!player.isAttacking() || playerAttackCooldown > 0) {
+            return;
+        }
+        
+        // Vérifier que c'est bien une animation d'attaque (attack, walk_attack, run_attack)
+        // On utilise getCurrentAttackHitbox() qui vérifie déjà isAttackAnimation() en interne
+        
+        // Obtenir la hitbox d'attaque dynamique du joueur
+        float[] playerAttackHitbox = player.getCurrentAttackHitbox();
+        if (playerAttackHitbox == null) {
+            return; // Pas de hitbox d'attaque disponible
+        }
+        
+        float playerAttackWidth = playerAttackHitbox[0];
+        float playerAttackHeight = playerAttackHitbox[1];
+        
+        // Position du centre du sprite du joueur
+        float playerCenterX = player.getX() + player.getWidth() / 2f;
+        float playerCenterY = player.getY() + player.getHeight() / 2f;
+        
+        // Position de la hitbox d'attaque du joueur (centrée sur le sprite)
+        float playerAttackX = playerCenterX - playerAttackWidth / 2f;
+        float playerAttackY = playerCenterY - playerAttackHeight / 2f;
+        
+        // Vérifier les collisions avec tous les ennemis
+        for (Enemy enemy : enemies) {
+            if (enemy == null || !enemy.isAlive()) {
+                continue;
+            }
             
-            // Si l'ennemi est dans la portée d'attaque
-            if (distance <= playerAttackRange) {
-                // Infliger des dégâts à l'ennemi
+            // Position du centre du sprite de l'ennemi
+            float enemyCenterX = enemy.getX() + enemy.getWidth() / 2f;
+            float enemyCenterY = enemy.getY() + enemy.getHeight() / 2f;
+            
+            // Utiliser la hitbox de l'ennemi (dynamique si en attaque, sinon fixe)
+            float enemyHitboxWidth = enemy.getHitboxWidth();
+            float enemyHitboxHeight = enemy.getHitboxHeight();
+            
+            if (enemy instanceof Slime) {
+                Slime slime = (Slime) enemy;
+                float[] enemyAttackHitbox = slime.getCurrentAttackHitbox();
+                if (enemyAttackHitbox != null) {
+                    // Utiliser la hitbox dynamique de l'animation d'attaque
+                    enemyHitboxWidth = enemyAttackHitbox[0];
+                    enemyHitboxHeight = enemyAttackHitbox[1];
+                }
+            }
+            
+            // Position de la hitbox de l'ennemi (centrée sur le sprite)
+            float enemyHitboxX = enemyCenterX - enemyHitboxWidth / 2f;
+            float enemyHitboxY = enemyCenterY - enemyHitboxHeight / 2f;
+            
+            // Vérifier si les rectangles se chevauchent (collision AABB)
+            boolean hitboxesCollide = (playerAttackX < enemyHitboxX + enemyHitboxWidth &&
+                                       playerAttackX + playerAttackWidth > enemyHitboxX &&
+                                       playerAttackY < enemyHitboxY + enemyHitboxHeight &&
+                                       playerAttackY + playerAttackHeight > enemyHitboxY);
+            
+            // Si les hitboxes se touchent, infliger des dégâts à l'ennemi
+            if (hitboxesCollide) {
                 enemy.takeDamage(10); // 10 dégâts par attaque
                 playerAttackCooldown = playerAttackCooldownTime;
+                // Ne pas infliger de dégâts à plusieurs ennemis en une seule frame
+                break;
             }
         }
     }
@@ -709,19 +796,30 @@ public class GameScreen implements Screen {
             CollisionHandler playerCollision = new CollisionHandler(
                 mapLoader, player.getWidth(), player.getHeight());
             player.getMovementHandler().setCollisionHandler(playerCollision);
-            Gdx.app.log("GameScreen", String.format("Collisions initialisées pour le joueur (%.1fx%.1f pixels)", 
-                player.getWidth(), player.getHeight()));
+            Gdx.app.log("GameScreen", String.format("Collisions initialisées pour le joueur (%.1fx%.1f pixels) à la position (%.1f, %.1f)", 
+                player.getWidth(), player.getHeight(), player.getX(), player.getY()));
+            
+            // Vérifier si la position initiale est valide
+            if (playerCollision != null) {
+                boolean isValid = playerCollision.isValidPosition(player.getX(), player.getY());
+                Gdx.app.log("GameScreen", String.format("Position initiale du joueur valide : %s", isValid));
+            }
         } else {
             Gdx.app.log("GameScreen", "Impossible d'initialiser les collisions : dimensions du joueur invalides");
         }
         
-        // Configurer les collisions pour l'ennemi - DÉSACTIVÉ TEMPORAIREMENT
-        // if (enemy != null && enemy.getWidth() > 0 && enemy.getHeight() > 0) {
-        //     CollisionHandler enemyCollision = new CollisionHandler(
-        //         mapLoader, enemy.getWidth(), enemy.getHeight());
-        //     enemy.getMovementHandler().setCollisionHandler(enemyCollision);
-        //     Gdx.app.log("GameScreen", "Collisions initialisées pour l'ennemi");
-        // }
+        // Configurer les collisions pour les ennemis (slimes) en utilisant leur hitbox
+        if (enemies != null) {
+            for (Enemy enemy : enemies) {
+                if (enemy != null && enemy.getHitboxWidth() > 0 && enemy.getHitboxHeight() > 0) {
+                    CollisionHandler enemyCollision = new CollisionHandler(
+                        mapLoader, enemy.getHitboxWidth(), enemy.getHitboxHeight());
+                    enemy.getMovementHandler().setCollisionHandler(enemyCollision);
+                    Gdx.app.log("GameScreen", String.format("Collisions initialisées pour un ennemi (hitbox: %.1fx%.1f pixels)", 
+                        enemy.getHitboxWidth(), enemy.getHitboxHeight()));
+                }
+            }
+        }
     }
     
     @Override
