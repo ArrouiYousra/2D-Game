@@ -195,20 +195,10 @@ public class Enemy extends Character {
             return;
         }
         
-        // Calculer la portée d'attaque basée sur les hitboxes
-        // Utiliser la hitbox dynamique si c'est un Slime en train d'attaquer
+        // Utiliser la hitbox fixe pour tous les ennemis (slimes et vampires)
+        // Les slimes ont une hitbox fixe de 17x16, les vampires de 30x30
         float currentHitboxWidth = hitboxWidth;
         float currentHitboxHeight = hitboxHeight;
-        
-        if (this instanceof Slime) {
-            Slime slime = (Slime) this;
-            float[] attackHitbox = slime.getCurrentAttackHitbox();
-            if (attackHitbox != null) {
-                // Utiliser la hitbox dynamique de l'animation d'attaque
-                currentHitboxWidth = attackHitbox[0];
-                currentHitboxHeight = attackHitbox[1];
-            }
-        }
         
         // Calculer la direction vers le joueur (peut être surchargée dans les sous-classes)
         Direction directionToTarget = calculateDirectionToTarget(dx, dy);
@@ -219,10 +209,9 @@ public class Enemy extends Character {
         float enemyHitboxY = enemySpriteCenterY - currentHitboxHeight / 2f;
         
         // Position de la hitbox du joueur (centrée sur le sprite)
-        // Pour les collisions avec l'ennemi, on utilise toujours les dimensions normales du joueur
-        // Les hitboxes d'attaque du joueur sont uniquement utilisées quand le joueur attaque
-        float playerHitboxWidth = target.getWidth();
-        float playerHitboxHeight = target.getHeight();
+        // Utiliser la hitbox fixe du joueur (20x27) au lieu des dimensions visuelles
+        float playerHitboxWidth = target.getHitboxWidth();
+        float playerHitboxHeight = target.getHitboxHeight();
         
         float playerHitboxX = targetCenterX - playerHitboxWidth / 2f;
         float playerHitboxY = targetCenterY - playerHitboxHeight / 2f;

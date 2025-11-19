@@ -300,6 +300,9 @@ public class GameScreen implements Screen {
         
         batch.end();
         
+        // Dessiner les hitboxes pour le débogage (rectangles rouges) - DÉSACTIVÉ
+        // drawHitboxes();
+        
         // Dessiner les barres de santé et shield (en coordonnées écran)
         if (player != null) {
             float screenHeight = Gdx.graphics.getHeight();
@@ -327,6 +330,113 @@ public class GameScreen implements Screen {
             }
             batch.end();
         }
+    }
+    
+    /**
+     * Dessine les hitboxes du joueur et des ennemis pour le débogage.
+     */
+    private void drawHitboxes() {
+        if (shapeRenderer == null) {
+            return;
+        }
+        
+        // Utiliser la projection de la caméra pour dessiner dans le monde du jeu
+        shapeRenderer.setProjectionMatrix(camera.combined);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        
+        // Dessiner les hitboxes de collision en rouge
+        shapeRenderer.setColor(1f, 0f, 0f, 1f); // Rouge
+        
+        // Dessiner la hitbox du joueur (20x27, centrée)
+        if (player != null && player.getWidth() > 0 && player.getHeight() > 0) {
+            float playerHitboxX = player.getHitboxX();
+            float playerHitboxY = player.getHitboxY();
+            float playerHitboxWidth = player.getHitboxWidth();
+            float playerHitboxHeight = player.getHitboxHeight();
+            
+            // Dessiner un rectangle rouge pour la hitbox de collision
+            shapeRenderer.rect(playerHitboxX, playerHitboxY, playerHitboxWidth, playerHitboxHeight);
+        }
+        
+        // Dessiner les hitboxes des ennemis (17x16 pour slimes, 30x30 pour vampires, centrées)
+        if (enemies != null) {
+            for (Enemy enemy : enemies) {
+                if (enemy != null && enemy.getWidth() > 0 && enemy.getHeight() > 0) {
+                    float enemyHitboxX = enemy.getHitboxX();
+                    float enemyHitboxY = enemy.getHitboxY();
+                    float enemyHitboxWidth = enemy.getHitboxWidth();
+                    float enemyHitboxHeight = enemy.getHitboxHeight();
+                    
+                    // Dessiner un rectangle rouge pour la hitbox de collision
+                    shapeRenderer.rect(enemyHitboxX, enemyHitboxY, enemyHitboxWidth, enemyHitboxHeight);
+                }
+            }
+        }
+        
+        // Dessiner la range d'attaque du joueur en vert (25x10 pixels, collée à l'extrémité de la hitbox rouge)
+        shapeRenderer.setColor(0f, 1f, 0f, 1f); // Vert
+        
+        if (player != null && player.isAttacking()) {
+            Direction attackDirection = player.getCurrentDirection();
+            
+            // Utiliser la hitbox de collision du joueur (rouge) pour positionner la range
+            float playerHitboxX = player.getHitboxX();
+            float playerHitboxY = player.getHitboxY();
+            float playerHitboxWidth = player.getHitboxWidth();
+            float playerHitboxHeight = player.getHitboxHeight();
+            float playerHitboxCenterX = playerHitboxX + playerHitboxWidth / 2f;
+            float playerHitboxCenterY = playerHitboxY + playerHitboxHeight / 2f;
+            
+            // Range d'attaque : 25x10 pixels
+            float attackRangeWidth = 25f;
+            float attackRangeHeight = 10f;
+            
+            float attackRangeX, attackRangeY;
+            float finalWidth, finalHeight;
+            
+            // Positionner la range collée à l'extrémité de la hitbox selon la direction
+            switch (attackDirection) {
+                case DOWN:
+                    // Range en bas de la hitbox (25x10, horizontale)
+                    attackRangeX = playerHitboxCenterX - attackRangeWidth / 2f;
+                    attackRangeY = playerHitboxY - attackRangeHeight; // Collée en bas
+                    finalWidth = attackRangeWidth;
+                    finalHeight = attackRangeHeight;
+                    break;
+                case UP:
+                    // Range en haut de la hitbox (25x10, horizontale)
+                    attackRangeX = playerHitboxCenterX - attackRangeWidth / 2f;
+                    attackRangeY = playerHitboxY + playerHitboxHeight; // Collée en haut
+                    finalWidth = attackRangeWidth;
+                    finalHeight = attackRangeHeight;
+                    break;
+                case SIDE_LEFT:
+                    // Range à gauche de la hitbox (10x25, verticale)
+                    attackRangeX = playerHitboxX - attackRangeHeight; // Collée à gauche
+                    attackRangeY = playerHitboxCenterY - attackRangeWidth / 2f;
+                    finalWidth = attackRangeHeight; // 10
+                    finalHeight = attackRangeWidth; // 25
+                    break;
+                case SIDE:
+                    // Range à droite de la hitbox (10x25, verticale)
+                    attackRangeX = playerHitboxX + playerHitboxWidth; // Collée à droite
+                    attackRangeY = playerHitboxCenterY - attackRangeWidth / 2f;
+                    finalWidth = attackRangeHeight; // 10
+                    finalHeight = attackRangeWidth; // 25
+                    break;
+                default:
+                    attackRangeX = playerHitboxCenterX - attackRangeWidth / 2f;
+                    attackRangeY = playerHitboxCenterY - attackRangeHeight / 2f;
+                    finalWidth = attackRangeWidth;
+                    finalHeight = attackRangeHeight;
+                    break;
+            }
+            
+            // Dessiner un rectangle vert pour la range d'attaque
+            shapeRenderer.rect(attackRangeX, attackRangeY, finalWidth, finalHeight);
+        }
+        
+        shapeRenderer.end();
     }
     
     /**
@@ -393,25 +503,61 @@ public class GameScreen implements Screen {
             return;
         }
         
-        // Vérifier que c'est bien une animation d'attaque (attack, walk_attack, run_attack)
-        // On utilise getCurrentAttackHitbox() qui vérifie déjà isAttackAnimation() en interne
+        // Range d'attaque du joueur : 25x10 pixels, collée à l'extrémité de la hitbox de collision
+        Direction attackDirection = player.getCurrentDirection();
         
-        // Obtenir la hitbox d'attaque dynamique du joueur
-        float[] playerAttackHitbox = player.getCurrentAttackHitbox();
-        if (playerAttackHitbox == null) {
-            return; // Pas de hitbox d'attaque disponible
+        // Utiliser la hitbox de collision du joueur (rouge) pour positionner la range
+        float playerHitboxX = player.getHitboxX();
+        float playerHitboxY = player.getHitboxY();
+        float playerHitboxWidth = player.getHitboxWidth();
+        float playerHitboxHeight = player.getHitboxHeight();
+        float playerHitboxCenterX = playerHitboxX + playerHitboxWidth / 2f;
+        float playerHitboxCenterY = playerHitboxY + playerHitboxHeight / 2f;
+        
+        // Dimensions de la range d'attaque
+        float attackRangeWidth = 25f;
+        float attackRangeHeight = 10f;
+        
+        float playerAttackX, playerAttackY;
+        float playerAttackWidth, playerAttackHeight;
+        
+        // Positionner la range collée à l'extrémité de la hitbox selon la direction
+        switch (attackDirection) {
+            case DOWN:
+                // Range en bas de la hitbox (25x10, horizontale)
+                playerAttackX = playerHitboxCenterX - attackRangeWidth / 2f;
+                playerAttackY = playerHitboxY - attackRangeHeight; // Collée en bas
+                playerAttackWidth = attackRangeWidth;
+                playerAttackHeight = attackRangeHeight;
+                break;
+            case UP:
+                // Range en haut de la hitbox (25x10, horizontale)
+                playerAttackX = playerHitboxCenterX - attackRangeWidth / 2f;
+                playerAttackY = playerHitboxY + playerHitboxHeight; // Collée en haut
+                playerAttackWidth = attackRangeWidth;
+                playerAttackHeight = attackRangeHeight;
+                break;
+            case SIDE_LEFT:
+                // Range à gauche de la hitbox (10x25, verticale)
+                playerAttackX = playerHitboxX - attackRangeHeight; // Collée à gauche
+                playerAttackY = playerHitboxCenterY - attackRangeWidth / 2f;
+                playerAttackWidth = attackRangeHeight; // 10
+                playerAttackHeight = attackRangeWidth; // 25
+                break;
+            case SIDE:
+                // Range à droite de la hitbox (10x25, verticale)
+                playerAttackX = playerHitboxX + playerHitboxWidth; // Collée à droite
+                playerAttackY = playerHitboxCenterY - attackRangeWidth / 2f;
+                playerAttackWidth = attackRangeHeight; // 10
+                playerAttackHeight = attackRangeWidth; // 25
+                break;
+            default:
+                playerAttackX = playerHitboxCenterX - attackRangeWidth / 2f;
+                playerAttackY = playerHitboxCenterY - attackRangeHeight / 2f;
+                playerAttackWidth = attackRangeWidth;
+                playerAttackHeight = attackRangeHeight;
+                break;
         }
-        
-        float playerAttackWidth = playerAttackHitbox[0];
-        float playerAttackHeight = playerAttackHitbox[1];
-        
-        // Position du centre du sprite du joueur
-        float playerCenterX = player.getX() + player.getWidth() / 2f;
-        float playerCenterY = player.getY() + player.getHeight() / 2f;
-        
-        // Position de la hitbox d'attaque du joueur (centrée sur le sprite)
-        float playerAttackX = playerCenterX - playerAttackWidth / 2f;
-        float playerAttackY = playerCenterY - playerAttackHeight / 2f;
         
         // Vérifier les collisions avec tous les ennemis
         for (Enemy enemy : enemies) {
@@ -423,19 +569,9 @@ public class GameScreen implements Screen {
             float enemyCenterX = enemy.getX() + enemy.getWidth() / 2f;
             float enemyCenterY = enemy.getY() + enemy.getHeight() / 2f;
             
-            // Utiliser la hitbox de l'ennemi (dynamique si en attaque, sinon fixe)
+            // Utiliser la hitbox fixe de l'ennemi (17x16 pour slimes, 30x30 pour vampires)
             float enemyHitboxWidth = enemy.getHitboxWidth();
             float enemyHitboxHeight = enemy.getHitboxHeight();
-            
-            if (enemy instanceof Slime) {
-                Slime slime = (Slime) enemy;
-                float[] enemyAttackHitbox = slime.getCurrentAttackHitbox();
-                if (enemyAttackHitbox != null) {
-                    // Utiliser la hitbox dynamique de l'animation d'attaque
-                    enemyHitboxWidth = enemyAttackHitbox[0];
-                    enemyHitboxHeight = enemyAttackHitbox[1];
-                }
-            }
             
             // Position de la hitbox de l'ennemi (centrée sur le sprite)
             float enemyHitboxX = enemyCenterX - enemyHitboxWidth / 2f;
@@ -831,21 +967,23 @@ public class GameScreen implements Screen {
             return;
         }
         
-        // Configurer les collisions pour le joueur
-        if (player != null && player.getWidth() > 0 && player.getHeight() > 0) {
+        // Configurer les collisions pour le joueur en utilisant sa hitbox fixe (20x27)
+        if (player != null && player.getHitboxWidth() > 0 && player.getHitboxHeight() > 0) {
             CollisionHandler playerCollision = new CollisionHandler(
-                mapLoader, player.getWidth(), player.getHeight());
+                mapLoader, player.getHitboxWidth(), player.getHitboxHeight());
             player.getMovementHandler().setCollisionHandler(playerCollision);
-            Gdx.app.log("GameScreen", String.format("Collisions initialisées pour le joueur (%.1fx%.1f pixels) à la position (%.1f, %.1f)", 
-                player.getWidth(), player.getHeight(), player.getX(), player.getY()));
+            Gdx.app.log("GameScreen", String.format("Collisions initialisées pour le joueur (hitbox: %.1fx%.1f pixels) à la position (%.1f, %.1f)", 
+                player.getHitboxWidth(), player.getHitboxHeight(), player.getX(), player.getY()));
             
-            // Vérifier si la position initiale est valide
+            // Vérifier si la position initiale est valide (en utilisant la position de la hitbox centrée)
             if (playerCollision != null) {
-                boolean isValid = playerCollision.isValidPosition(player.getX(), player.getY());
+                float playerHitboxX = player.getHitboxX();
+                float playerHitboxY = player.getHitboxY();
+                boolean isValid = playerCollision.isValidPosition(playerHitboxX, playerHitboxY);
                 Gdx.app.log("GameScreen", String.format("Position initiale du joueur valide : %s", isValid));
             }
         } else {
-            Gdx.app.log("GameScreen", "Impossible d'initialiser les collisions : dimensions du joueur invalides");
+            Gdx.app.log("GameScreen", "Impossible d'initialiser les collisions : hitbox du joueur invalide");
         }
         
         // Configurer les collisions pour les ennemis (slimes) en utilisant leur hitbox

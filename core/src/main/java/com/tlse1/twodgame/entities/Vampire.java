@@ -43,8 +43,8 @@ public class Vampire extends Enemy {
         combatHandler.setHealth(health);
         
         // Définir la hitbox fixe du vampire (30x30 pixels)
-        setHitboxWidth(30f);
-        setHitboxHeight(30f);
+        setHitboxWidth(14f);
+        setHitboxHeight(16f);
         
         // Définir le scale pour que le vampire fasse 32x32 pixels (comme le joueur)
         // Les sprites sont découpés en 64x64 pixels
