@@ -12,11 +12,9 @@ import com.tlse1.twodgame.screens.GameScreen;
 import com.tlse1.twodgame.screens.SettingsScreen;
 import com.tlse1.twodgame.utils.MenuMapping;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.math.Rectangle;
 
-/**
- * Écran de menu principal.
- * Affiche le menu avec sprite6 comme fond et les boutons depuis Main_menu.png.
- */
 public class SettingsScreen implements Screen {
     
     private TwoDGame game;
@@ -24,7 +22,6 @@ public class SettingsScreen implements Screen {
     private OrthographicCamera camera;
     private MenuMapping menuMapping;
     
-    // TextureRegion pour le fond (sprite6)
     private TextureRegion menuBackground;
     private Texture font = new Texture("gui/PNG/font_flou.png");
     private Texture restart = new Texture("gui/PNG/Restart.png");
@@ -36,37 +33,63 @@ public class SettingsScreen implements Screen {
     private Texture setting = new Texture("gui/PNG/Setting.png");
     private Texture cross = new Texture("gui/PNG/Cross_button.png");
     private Texture home = new Texture("gui/PNG/Home.png");
+    private Texture click = new Texture("gui/PNG/Click.png");
+    private Texture non_click = new Texture("gui/PNG/Non_click.png");
+    private Texture settings_font = new Texture("gui/PNG/Settings_font.png");
+    private Texture full_screen = new Texture("gui/PNG/Full_screen.png");
+    private Texture window = new Texture("gui/PNG/Window.png");
 
     private TextureRegion resumeButton;
+    private TextureRegion restartButton;
+    private TextureRegion settingsButton;
+    private TextureRegion quitButton;
+
+    // État des boutons
+    private boolean isFullscreen = false; // État actuel de l'affichage
     
-    // États des boutons (pour le survol)
+    // Zones cliquables
+    private Rectangle clickButtonBounds = new Rectangle();
+    private Rectangle non_clickButtonBounds = new Rectangle();
+    private Rectangle fullscreenButtonBounds = new Rectangle();
+    private Rectangle windowButtonBounds = new Rectangle();
+    private Rectangle resumeButtonBounds = new Rectangle();
+    private Rectangle restartButtonBounds = new Rectangle();
+    private Rectangle settingsButtonBounds = new Rectangle();
+    private Rectangle quitButtonBounds = new Rectangle();
+
     private boolean isResumeButtonHovered = false;
     private boolean isRestartButtonHovered = false;
     private boolean isSettingsButtonHovered = false;
     private boolean isQuitButtonHovered = false;
     
-    // Dimensions de l'écran
     private float screenWidth;
     private float screenHeight;
-    
-    // Position et scale du menu
     private float menuX, menuY, menuScale;
+    
+    // Dimensions de la fenêtre en mode fenêtré
+    private static final int WINDOWED_WIDTH = 1280;
+    private static final int WINDOWED_HEIGHT = 720;
     
     public SettingsScreen(TwoDGame game) {
         this.game = game;
         
-        // Initialiser la caméra avec les dimensions initiales
         screenWidth = Gdx.graphics.getWidth();
         screenHeight = Gdx.graphics.getHeight();
         camera = new OrthographicCamera(screenWidth, screenHeight);
         camera.setToOrtho(false, screenWidth, screenHeight);
         camera.update();
         
-        // Initialiser le SpriteBatch
-        batch = new SpriteBatch();
+        // Vérifier l'état initial du plein écran
+        isFullscreen = Gdx.graphics.isFullscreen();
         
-        // Charger le mapping des sprites depuis le JSON
+        batch = new SpriteBatch();
         menuMapping = new MenuMapping();
+        
+        menuBackground = menuMapping.getSprite("sprite6");
+        resumeButton = menuMapping.getSprite("sprite7");
+        restartButton = menuMapping.getSprite("sprite11");
+        settingsButton = menuMapping.getSprite("sprite15");
+        quitButton = menuMapping.getSprite("sprite39");
         
         if (menuBackground == null || resume == null || restart == null 
             || setting == null || quit == null) {
@@ -75,7 +98,6 @@ public class SettingsScreen implements Screen {
             Gdx.app.log("MenuScreen", "Sprites du menu chargés");
         }
         
-        // Initialiser les positions (sera calculé dans render)
         menuX = 0;
         menuY = 0;
         menuScale = 1f;
@@ -83,188 +105,196 @@ public class SettingsScreen implements Screen {
     
     @Override
     public void show() {
-        // Appelé quand l'écran devient visible
     }
     
     @Override
     public void render(float delta) {
-        // Mettre à jour la caméra
         camera.update();
         
-        // Nettoyer l'écran
-        Gdx.gl.glClearColor(0.05f, 0.05f, 0.15f, 1); // fond bleu très foncé
+        Gdx.gl.glClearColor(0.05f, 0.05f, 0.15f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
         
-        // Définir les matrices de projection pour utiliser la caméra
         batch.setProjectionMatrix(camera.combined);
         
-        // Dessiner les éléments
         batch.begin();
         
         if (menuBackground != null) {
-            // Calculer le scale pour que le menu s'adapte à l'écran
             float scaleX = screenWidth / menuBackground.getRegionWidth();
             float scaleY = screenHeight / menuBackground.getRegionHeight();
-            menuScale = Math.min(scaleX, scaleY); // Garder les proportions
+            menuScale = Math.min(scaleX, scaleY);
             
             float drawWidth = menuBackground.getRegionWidth() * menuScale;
             float drawHeight = menuBackground.getRegionHeight() * menuScale;
-            menuX = (screenWidth - drawWidth) / 2f; // Centrer horizontalement
-            menuY = (screenHeight - drawHeight) / 2f; // Centrer verticalement
+            menuX = (screenWidth - drawWidth) / 2f;
+            menuY = (screenHeight - drawHeight) / 2f;
             
-            // Dessiner le fond (sprite6)
             batch.draw(font, 0, 0, screenWidth, screenHeight);
-            
-            // Dessiner les boutons
             drawButtons(drawWidth, drawHeight);
         }
         
         batch.end();
         
-        // Gérer les interactions avec les boutons
         handleInput();
     }
     
-    /**
-     * Dessine les boutons du menu
-     */
     private void drawButtons(float drawWidth, float drawHeight) {
-        if (resume == null || restart == null || setting == null || quit == null) {
-            return;
-        }
-        
-        // Calculer les dimensions des boutons avec le scale
-        float buttonWidth = resumeButton.getRegionWidth() * menuScale;
-        float buttonHeight = resumeButton.getRegionHeight() * menuScale;
-        
-        // Espacement entre les boutons (inspiré de sprite5)
-        float buttonSpacing = 8f * menuScale;
-        
-        // Position de départ pour les boutons (centré verticalement dans le menu)
-        // On place les boutons verticalement, en commençant par le haut
-        float startY = menuY + drawHeight * 0.7f; // Commencer à 70% de la hauteur du menu
-        
-        // Calculer la position X pour centrer les boutons
-        float buttonX = menuX + (drawWidth - buttonWidth) / 2f;
-        
-        // Dessiner les boutons verticalement
-        // Resume (sprite7) - en haut
-        float resumeY = startY;
-        batch.draw(resume, buttonX, resumeY, buttonWidth, buttonHeight);
-        
-        // Restart (sprite11) - deuxième
-        float restartY = resumeY - (buttonHeight + buttonSpacing);
-        batch.draw(restart, buttonX, restartY, buttonWidth, buttonHeight);
-        
-        // Settings (sprite15) - troisième
-        float settingsY = restartY - (buttonHeight + buttonSpacing);
-        batch.draw(setting, buttonX, settingsY, buttonWidth, buttonHeight);
+    if (resume == null || restart == null || setting == null || quit == null) {
+        return;
+    }
 
-        // Inventory  - quartième
-        float inventoryY = settingsY - (buttonHeight + buttonSpacing);
-        batch.draw(inventory, buttonX, inventoryY, buttonWidth, buttonHeight);
-        
-        // Quit (sprite39) - en bas
-        float quitY = inventoryY - (buttonHeight + buttonSpacing);
-        batch.draw(quit_long, buttonX, quitY, buttonWidth, buttonHeight);
+    float clickWidth = (click.getWidth() * menuScale) * 0.06f;
+    float clickHeight = (click.getHeight() * menuScale) * 0.06f;
 
-        /* // Cross - haut droit
-        batch.draw(home, 440, 70, 30, 30); */
+    float settingskWidth = (settings_font.getWidth() * menuScale) * 0.4f;
+    float settingsHeight = (settings_font.getHeight() * menuScale) * 0.4f;
+    
+    float buttonWidth = resumeButton.getRegionWidth() * menuScale;
+    float buttonHeight = resumeButton.getRegionHeight() * menuScale;
+    float buttonSpacing = 8f * menuScale;
+    float startY = menuY + drawHeight * 0.7f;
+    float buttonX = menuX + (drawWidth - buttonWidth) / 2f;
+    
+    // Positions des boutons
+    float resumeY = startY;
+    float restartY = resumeY - (buttonHeight + buttonSpacing);
+    float settingsY = restartY - (buttonHeight + buttonSpacing);
+    float inventoryY = settingsY - (buttonHeight + buttonSpacing);
+    float quitY = inventoryY - (buttonHeight + buttonSpacing);
+    
+    // Positions des boutons fullscreen/window - MODIFIÉ : plus bas
+    float fullscreenX = buttonX + drawHeight * 0.2f;
+    float windowX = buttonX - drawHeight * 0.2f;
+    float screenButtonY = resumeY - clickHeight - 35; // En dessous des boutons click avec espacement
+    float screenButtonWidth = settingskWidth * 0.6f;
+    float screenButtonHeight = settingsHeight * 0.6f;
+    
+    // DESSINER LES BOUTONS CLICK/NON_CLICK SELON L'ÉTAT
+    if (isFullscreen) {
+        // En plein écran : afficher click sur fullscreen
+        float clickX = fullscreenX;
+        float non_clickX = windowX;
+        
+        batch.draw(click, clickX, resumeY, clickWidth, clickHeight);
+        batch.draw(non_click, non_clickX, resumeY, clickWidth, clickHeight);
+        
+        clickButtonBounds.set(clickX, resumeY, clickWidth, clickHeight);
+        non_clickButtonBounds.set(non_clickX, resumeY, clickWidth, clickHeight);
+    } else {
+        // En mode fenêtré : afficher click sur window
+        float clickX = windowX;
+        float non_clickX = fullscreenX;
+        
+        batch.draw(click, clickX, resumeY, clickWidth, clickHeight);
+        batch.draw(non_click, non_clickX, resumeY, clickWidth, clickHeight);
+        
+        clickButtonBounds.set(clickX, resumeY, clickWidth, clickHeight);
+        non_clickButtonBounds.set(non_clickX, resumeY, clickWidth, clickHeight);
     }
     
-    /**
-     * Gère les interactions avec les boutons (survol et clic)
-     */
+    // Dessiner les icônes fullscreen et window EN DESSOUS
+    batch.draw(full_screen, fullscreenX, screenButtonY, screenButtonWidth, screenButtonHeight);
+    batch.draw(window, windowX, screenButtonY, screenButtonWidth, screenButtonHeight);
+    
+    // Zones cliquables pour les boutons fullscreen/window
+    fullscreenButtonBounds.set(fullscreenX, screenButtonY, screenButtonWidth, screenButtonHeight);
+    windowButtonBounds.set(windowX, screenButtonY, screenButtonWidth, screenButtonHeight);
+    
+    // Texte "Settings" au centre et à droite
+    batch.draw(settings_font, buttonX - drawHeight * 0.05f, resumeY + 30, settingskWidth, settingsHeight);
+
+    // Autres boutons du menu
+    batch.draw(setting, buttonX, settingsY, buttonWidth, buttonHeight);
+    batch.draw(inventory, buttonX, inventoryY, buttonWidth, buttonHeight);
+    batch.draw(quit_long, buttonX, quitY, buttonWidth, buttonHeight);
+    
+    // Mettre à jour les zones cliquables des autres boutons
+    resumeButtonBounds.set(buttonX, resumeY + 50, buttonWidth, buttonHeight);
+    restartButtonBounds.set(buttonX, restartY, buttonWidth, buttonHeight);
+    settingsButtonBounds.set(buttonX, settingsY, buttonWidth, buttonHeight);
+    quitButtonBounds.set(buttonX, quitY, buttonWidth, buttonHeight);
+}
+    
     private void handleInput() {
-        // Convertir les coordonnées de l'écran vers les coordonnées de la caméra
         float touchX = Gdx.input.getX();
-        float touchY = Gdx.graphics.getHeight() - Gdx.input.getY(); // Inverser Y car LibGDX utilise le bas comme origine
+        float touchY = Gdx.graphics.getHeight() - Gdx.input.getY();
         
-        // Calculer les positions des boutons (même logique que dans drawButtons)
-        if (menuBackground == null || resume == null) {
-            return;
-        }
+        // Vérifier les survols
+        isResumeButtonHovered = resumeButtonBounds.contains(touchX, touchY);
+        isRestartButtonHovered = restartButtonBounds.contains(touchX, touchY);
+        isSettingsButtonHovered = settingsButtonBounds.contains(touchX, touchY);
+        isQuitButtonHovered = quitButtonBounds.contains(touchX, touchY);
         
-        float drawWidth = menuBackground.getRegionWidth() * menuScale;
-        float drawHeight = menuBackground.getRegionHeight() * menuScale;
-        float buttonWidth = resumeButton.getRegionWidth() * menuScale;
-        float buttonHeight = resumeButton.getRegionHeight() * menuScale;
-        float buttonSpacing = 8f * menuScale;
-        float startY = menuY + drawHeight * 0.7f;
-        float buttonX = menuX + (drawWidth - buttonWidth) / 2f;
-        
-        float resumeY = startY;
-        float restartY = resumeY - (buttonHeight + buttonSpacing);
-        float settingsY = restartY - (buttonHeight + buttonSpacing);
-        float inventoryY = settingsY - (buttonHeight + buttonSpacing);
-        float quitY = inventoryY - (buttonHeight + buttonSpacing);
-        
-        // Vérifier le survol des boutons
-        boolean isMouseOverResume = (touchX >= buttonX && touchX <= buttonX + buttonWidth &&
-                                    touchY >= resumeY && touchY <= resumeY + buttonHeight);
-        
-        boolean isMouseOverRestart = (touchX >= buttonX && touchX <= buttonX + buttonWidth &&
-                                     touchY >= restartY && touchY <= restartY + buttonHeight);
-        
-        boolean isMouseOverSettings = (touchX >= buttonX && touchX <= buttonX + buttonWidth &&
-                                      touchY >= settingsY && touchY <= settingsY + buttonHeight);
-        
-        boolean isMouseOverQuit = (touchX >= buttonX && touchX <= buttonX + buttonWidth &&
-                                  touchY >= quitY && touchY <= quitY + buttonHeight);
-        
-        // Mettre à jour l'état des boutons (pour le survol - à implémenter plus tard avec des textures différentes)
-        isResumeButtonHovered = isMouseOverResume;
-        isRestartButtonHovered = isMouseOverRestart;
-        isSettingsButtonHovered = isMouseOverSettings;
-        isQuitButtonHovered = isMouseOverQuit;
-        
-        // Détecter les clics sur les boutons
+        // Détecter les clics
         if (Gdx.input.justTouched()) {
-            if (isMouseOverResume) {
+            if (fullscreenButtonBounds.contains(touchX, touchY)) {
+                // Passer en plein écran
+                toggleFullscreen(true);
+                
+            } else if (windowButtonBounds.contains(touchX, touchY)) {
+                // Passer en mode fenêtré
+                toggleFullscreen(false);
+                
+            } else if (clickButtonBounds.contains(touchX, touchY) || 
+                       non_clickButtonBounds.contains(touchX, touchY)) {
+                // Inverser l'état du bouton
+                toggleFullscreen(!isFullscreen);
+                
+            } else if (isResumeButtonHovered) {
                 Gdx.app.log("MenuScreen", "Bouton Resume cliqué");
-            } else if (isMouseOverRestart) {
-                // Redémarrer la partie
+                
+            } else if (isRestartButtonHovered) {
                 game.setScreen(new GameScreen(game));
-            } else if (isMouseOverSettings) {
-                // Aller aux paramètres
+                
+            } else if (isSettingsButtonHovered) {
                 game.setScreen(new SettingsScreen(game));
-            } else if (isMouseOverQuit) {
-                // Quitter le jeu
+                
+            } else if (isQuitButtonHovered) {
                 Gdx.app.exit();
             }
         }
         
-        // Détecter la touche ESC pour revenir au jeu (si le menu est un menu pause)
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-            // TODO: Reprendre la partie si c'est un menu pause
             Gdx.app.log("MenuScreen", "ESC pressé");
+        }
+    }
+    
+    /**
+     * Bascule entre plein écran et mode fenêtré
+     * @param fullscreen true pour plein écran, false pour fenêtré
+     */
+    private void toggleFullscreen(boolean fullscreen) {
+        if (fullscreen && !isFullscreen) {
+            // Passer en plein écran
+            Gdx.graphics.setFullscreenMode(Gdx.graphics.getDisplayMode());
+            isFullscreen = true;
+            Gdx.app.log("SettingsScreen", "Passage en plein écran");
+            
+        } else if (!fullscreen && isFullscreen) {
+            // Passer en mode fenêtré
+            Gdx.graphics.setWindowedMode(WINDOWED_WIDTH, WINDOWED_HEIGHT);
+            isFullscreen = false;
+            Gdx.app.log("SettingsScreen", "Passage en mode fenêtré");
         }
     }
     
     @Override
     public void resize(int width, int height) {
-        // Mettre à jour les dimensions de l'écran
         screenWidth = width;
         screenHeight = height;
-        
-        // Mettre à jour la caméra avec les nouvelles dimensions
         camera.setToOrtho(false, screenWidth, screenHeight);
         camera.update();
     }
     
     @Override
     public void pause() {
-        // Appelé quand le jeu est mis en pause
     }
     
     @Override
     public void resume() {
-        // Appelé quand le jeu reprend
     }
     
     @Override
     public void hide() {
-        // Appelé quand l'écran devient invisible
     }
     
     @Override
@@ -275,5 +305,20 @@ public class SettingsScreen implements Screen {
         if (menuMapping != null) {
             menuMapping.dispose();
         }
+        font.dispose();
+        restart.dispose();
+        resume.dispose();
+        quit_long.dispose();
+        quit.dispose();
+        inventory.dispose();
+        equipement.dispose();
+        setting.dispose();
+        cross.dispose();
+        home.dispose();
+        click.dispose();
+        non_click.dispose();
+        settings_font.dispose();
+        full_screen.dispose();
+        window.dispose();
     }
 }
