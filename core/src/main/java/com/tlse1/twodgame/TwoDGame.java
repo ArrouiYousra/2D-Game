@@ -2,6 +2,7 @@ package com.tlse1.twodgame;
 
 import com.badlogic.gdx.Game;
 import com.tlse1.twodgame.screens.MenuScreen;
+import com.tlse1.twodgame.screens.PauseScreen;
 import com.tlse1.twodgame.screens.AnimatedSplashScreen;
 
 /**
@@ -13,7 +14,7 @@ public class TwoDGame extends Game {
     @Override
     public void create() {
         // Démarrer avec le menu principal
-        setScreen(new AnimatedSplashScreen(this));
+        setScreen(new MenuScreen(this));
     }
     
     @Override

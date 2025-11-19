@@ -17,7 +17,7 @@ import com.badlogic.gdx.graphics.Texture;
  * Écran de menu principal.
  * Affiche le menu avec sprite6 comme fond et les boutons depuis Main_menu.png.
  */
-public class MenuScreen implements Screen {
+public class PauseScreen implements Screen {
     
     private TwoDGame game;
     private SpriteBatch batch;
@@ -30,23 +30,11 @@ public class MenuScreen implements Screen {
     private Texture restart = new Texture("gui/PNG/Restart.png");
     private Texture resume = new Texture("gui/PNG/Resume.png");
     private Texture quit_long = new Texture("gui/PNG/Quit_long.png");
-    private Texture quit = new Texture("gui/PNG/Quit.png");
     private Texture inventory = new Texture("gui/PNG/Inventory_button.png");
     private Texture equipement = new Texture("gui/PNG/Equipement.png");
     private Texture setting = new Texture("gui/PNG/Setting.png");
     private Texture cross = new Texture("gui/PNG/Cross_button.png");
     private Texture home = new Texture("gui/PNG/Home.png");
-    private Texture abyss = new Texture("gui/PNG/Abyss_logo.png");
-    private Texture param = new Texture("gui/PNG/Param.png");
-    private Texture abyss_zomb1 = new Texture("gui/PNG/Abyss_zomb1.png");
-    private Texture abyss_chelou = new Texture("gui/PNG/Abyss_chelou.png");
-    private Texture abyss_sos = new Texture("gui/PNG/Abyss_sos.png");
-    private Texture abyss_zomb = new Texture("gui/PNG/Abyss_zomb.png");
-    private Texture level = new Texture("gui/PNG/Levels.png");
-    private Texture stuff = new Texture("gui/PNG/Stuffs.png");
-    private Texture shop = new Texture("gui/PNG/Shop.png");
-    private Texture play = new Texture("gui/PNG/Play.png");
-
 
     
     // TextureRegions pour les boutons
@@ -64,12 +52,11 @@ public class MenuScreen implements Screen {
     // Dimensions de l'écran
     private float screenWidth;
     private float screenHeight;
-
     
     // Position et scale du menu
     private float menuX, menuY, menuScale;
     
-    public MenuScreen(TwoDGame game) {
+    public PauseScreen(TwoDGame game) {
         this.game = game;
         
         // Initialiser la caméra avec les dimensions initiales
@@ -140,11 +127,6 @@ public class MenuScreen implements Screen {
             
             // Dessiner le fond (sprite6)
             batch.draw(font, 0, 0, screenWidth, screenHeight);
-            batch.draw(abyss, 70, 350, 200, 50);
-            batch.draw(abyss_zomb1, 70, 300, 200, 50);
-            batch.draw(abyss_chelou, 70, 250, 200, 50);
-            batch.draw(abyss_sos, 70, 200, 200, 50);
-            batch.draw(abyss_zomb, 70, 150, 200, 50);
             
             // Dessiner les boutons
             drawButtons(drawWidth, drawHeight);
@@ -168,12 +150,6 @@ public class MenuScreen implements Screen {
         float buttonWidth = resumeButton.getRegionWidth() * menuScale;
         float buttonHeight = resumeButton.getRegionHeight() * menuScale;
         
-        float paramWidth = (param.getWidth() * menuScale) * 0.02f;
-        float paramHeight = (param.getHeight() * menuScale) * 0.02f;
-
-        float paramX = menuX + drawWidth * 1.4f;
-        float paramY = menuY + drawWidth * 1.7f;
-        
         // Espacement entre les boutons (inspiré de sprite5)
         float buttonSpacing = 8f * menuScale;
         
@@ -184,27 +160,26 @@ public class MenuScreen implements Screen {
         // Calculer la position X pour centrer les boutons
         float buttonX = menuX + (drawWidth - buttonWidth) / 2f;
         
-        batch.draw(param, paramX, paramY, paramHeight, paramWidth);
+        // Dessiner les boutons verticalement
         // Resume (sprite7) - en haut
         float resumeY = startY;
-        batch.draw(level, buttonX, resumeY, buttonWidth, buttonHeight);
+        batch.draw(resume, buttonX, resumeY, buttonWidth, buttonHeight);
         
         // Restart (sprite11) - deuxième
         float restartY = resumeY - (buttonHeight + buttonSpacing);
-        batch.draw(inventory, buttonX, restartY, buttonWidth, buttonHeight);
+        batch.draw(restart, buttonX, restartY, buttonWidth, buttonHeight);
         
         // Settings (sprite15) - troisième
         float settingsY = restartY - (buttonHeight + buttonSpacing);
-        batch.draw(stuff, buttonX, settingsY, buttonWidth, buttonHeight);
+        batch.draw(setting, buttonX, settingsY, buttonWidth, buttonHeight);
 
         // Inventory  - quartième
         float inventoryY = settingsY - (buttonHeight + buttonSpacing);
-        batch.draw(shop, buttonX, inventoryY, buttonWidth, buttonHeight);
+        batch.draw(inventory, buttonX, inventoryY, buttonWidth, buttonHeight);
         
         // Quit (sprite39) - en bas
         float quitY = inventoryY - (buttonHeight + buttonSpacing);
-        batch.draw(quit, buttonX - 150, quitY, buttonWidth / 2, buttonHeight);
-        batch.draw(play, buttonX + 225, quitY - 5, buttonWidth / 2, buttonHeight + 10);
+        batch.draw(quit_long, buttonX, quitY, buttonWidth, buttonHeight);
 
         /* // Cross - haut droit
         batch.draw(home, 440, 70, 30, 30); */
@@ -234,19 +209,9 @@ public class MenuScreen implements Screen {
         float resumeY = startY;
         float restartY = resumeY - (buttonHeight + buttonSpacing);
         float settingsY = restartY - (buttonHeight + buttonSpacing);
-        float inventoryY = settingsY - (buttonHeight + buttonSpacing);
-        float quitY = inventoryY - (buttonHeight + buttonSpacing);
-
-        float paramWidth = (param.getWidth() * menuScale) * 0.02f;
-        float paramHeight = (param.getHeight() * menuScale) * 0.02f;
-
-        float paramX = menuX + drawWidth * 1.4f;
-        float paramY = menuY + drawWidth * 1.7f;
+        float quitY = settingsY - (buttonHeight + buttonSpacing);
         
         // Vérifier le survol des boutons
-        boolean isMouseOverParam = (touchX >= paramX && touchX <= paramX + paramHeight &&
-                                    touchY >= paramY && touchY <= paramY + paramWidth);
-
         boolean isMouseOverResume = (touchX >= buttonX && touchX <= buttonX + buttonWidth &&
                                     touchY >= resumeY && touchY <= resumeY + buttonHeight);
         
@@ -270,12 +235,12 @@ public class MenuScreen implements Screen {
             if (isMouseOverResume) {
                 // TODO: Reprendre la partie (si une partie est en cours)
                 Gdx.app.log("MenuScreen", "Bouton Resume cliqué");
-            } else if (isMouseOverParam) {
-                // Redémarrer la partie
-                game.setScreen(new SettingsScreen(game));
             } else if (isMouseOverRestart) {
                 // Redémarrer la partie
                 game.setScreen(new GameScreen(game));
+            } else if (isMouseOverSettings) {
+                // Aller aux paramètres
+                game.setScreen(new SettingsScreen(game));
             } else if (isMouseOverQuit) {
                 // Quitter le jeu
                 Gdx.app.exit();
