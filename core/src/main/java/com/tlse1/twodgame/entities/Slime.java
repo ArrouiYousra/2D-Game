@@ -1,13 +1,8 @@
 package com.tlse1.twodgame.entities;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.utils.JsonReader;
-import com.badlogic.gdx.utils.JsonValue;
 import com.tlse1.twodgame.entities.handlers.AnimationLoader;
 import com.tlse1.twodgame.utils.Direction;
-
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Classe représentant un slime ennemi dans le jeu.
@@ -17,24 +12,6 @@ public class Slime extends Enemy {
     
     // Niveau du slime (1, 2 ou 3)
     private int level;
-    
-    // Hitboxes dynamiques pour l'animation d'attaque
-    // Mapping : direction + frameIndex -> hitbox {width, height}
-    // Tous les slimes utilisent le même fichier slims_hitbox.json
-    private Map<String, HitboxData> attackHitboxes;
-    
-    /**
-     * Structure pour stocker les données de hitbox
-     */
-    private static class HitboxData {
-        float width;
-        float height;
-        
-        HitboxData(float width, float height) {
-            this.width = width;
-            this.height = height;
-        }
-    }
     
     /**
      * Constructeur par défaut (niveau 1).
@@ -73,14 +50,11 @@ public class Slime extends Enemy {
         combatHandler.setMaxHealth(50);
         combatHandler.setHealth(50);
         
-        // Définir la hitbox fixe du slime par défaut (centrée sur chaque sprite)
+        // Définir la hitbox fixe du slime (centrée sur chaque sprite)
         // La hitbox est utilisée pour les collisions et les attaques
-        // Dimensions réelles de la hitbox dans les sprites : 17x16 pixels
-        setHitboxWidth(17f);  // 17 pixels de largeur
-        setHitboxHeight(16f); // 16 pixels de hauteur
-        
-        // Charger les hitboxes dynamiques pour l'animation d'attaque
-        loadAttackHitboxes();
+        // Dimensions fixes : 17x16 pixels (ne change pas selon l'animation)
+        setHitboxWidth(13f);  // 17 pixels de largeur
+        setHitboxHeight(14f); // 16 pixels de hauteur
         
         // Charger toutes les animations
         loadAnimations();
@@ -159,95 +133,6 @@ public class Slime extends Enemy {
             "death", 0.15f, yRanges, false);
         
         Gdx.app.log("Slime", String.format("Slime niveau %d: animations chargées", level));
-    }
-    
-    /**
-     * Charge les hitboxes dynamiques depuis slims_hitbox.json.
-     * Le mapping est : sprite185-194 (DOWN), sprite195-204 (UP), sprite205-214 (LEFT), sprite215-224 (RIGHT)
-     * correspondant à sprite1-10, sprite11-20, sprite21-30, sprite31-40 dans le fichier hitbox
-     */
-    private void loadAttackHitboxes() {
-        attackHitboxes = new HashMap<>();
-        
-        try {
-            JsonReader jsonReader = new JsonReader();
-            JsonValue hitboxData = jsonReader.parse(Gdx.files.internal("slims/slims_hitbox.json"));
-            
-            // Mapping des sprites d'attaque vers les hitboxes
-            // slim1_attack.json : sprite185-194 (DOWN, frames 0-9) -> sprite1-10
-            //                    sprite195-204 (UP, frames 0-9) -> sprite11-20
-            //                    sprite205-214 (LEFT, frames 0-9) -> sprite21-30
-            //                    sprite215-224 (RIGHT, frames 0-9) -> sprite31-40
-            
-            for (int i = 0; i < hitboxData.size; i++) {
-                JsonValue hitbox = hitboxData.get(i);
-                String spriteName = hitbox.getString("name");
-                float width = hitbox.getFloat("width");
-                float height = hitbox.getFloat("height");
-                
-                // Extraire le numéro du sprite (sprite1 -> 1, sprite11 -> 11, etc.)
-                int spriteNum = Integer.parseInt(spriteName.replace("sprite", ""));
-                
-                // Déterminer la direction et le frame index
-                Direction direction;
-                int frameIndex;
-                
-                if (spriteNum >= 1 && spriteNum <= 10) {
-                    // DOWN : sprite1-10 -> frames 0-9
-                    direction = Direction.DOWN;
-                    frameIndex = spriteNum - 1;
-                } else if (spriteNum >= 11 && spriteNum <= 20) {
-                    // UP : sprite11-20 -> frames 0-9
-                    direction = Direction.UP;
-                    frameIndex = spriteNum - 11;
-                } else if (spriteNum >= 21 && spriteNum <= 30) {
-                    // LEFT : sprite21-30 -> frames 0-9
-                    direction = Direction.SIDE_LEFT;
-                    frameIndex = spriteNum - 21;
-                } else if (spriteNum >= 31 && spriteNum <= 40) {
-                    // RIGHT : sprite31-40 -> frames 0-9
-                    direction = Direction.SIDE;
-                    frameIndex = spriteNum - 31;
-                } else {
-                    continue; // Ignorer les sprites hors range
-                }
-                
-                // Créer la clé pour le mapping
-                String key = direction.name() + "_" + frameIndex;
-                attackHitboxes.put(key, new HitboxData(width, height));
-            }
-            
-            Gdx.app.log("Slime", "Hitboxes d'attaque chargées : " + attackHitboxes.size() + " entrées");
-        } catch (Exception e) {
-            Gdx.app.error("Slime", "Erreur lors du chargement des hitboxes d'attaque", e);
-        }
-    }
-    
-    /**
-     * Obtient la hitbox actuelle selon l'animation d'attaque en cours.
-     * 
-     * @return Tableau [width, height] de la hitbox, ou null si pas en attaque
-     */
-    public float[] getCurrentAttackHitbox() {
-        if (!animationHandler.isAttackAnimation()) {
-            return null;
-        }
-        
-        Direction direction = animationHandler.getCurrentDirection();
-        int frameIndex = animationHandler.getCurrentFrameIndex();
-        
-        if (frameIndex < 0 || frameIndex >= 10) {
-            return null;
-        }
-        
-        String key = direction.name() + "_" + frameIndex;
-        HitboxData hitbox = attackHitboxes.get(key);
-        
-        if (hitbox != null) {
-            return new float[]{hitbox.width, hitbox.height};
-        }
-        
-        return null;
     }
     
     /**

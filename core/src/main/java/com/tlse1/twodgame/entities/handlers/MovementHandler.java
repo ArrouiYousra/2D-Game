@@ -53,7 +53,14 @@ public class MovementHandler {
         }
         
         // Vérifier les collisions si un CollisionHandler est disponible
+        // Note: Les collisions utilisent les hitboxes fixes (centrées sur les sprites)
+        // Le CollisionHandler vérifie les collisions en utilisant la position de la hitbox centrée
+        // Pour cela, on doit calculer la position de la hitbox à partir de la position du sprite
         if (collisionHandler != null) {
+            // Calculer la position de la hitbox centrée pour la position actuelle et la nouvelle position
+            // La hitbox est centrée sur le sprite, donc on doit connaître les dimensions visuelles du sprite
+            // Pour l'instant, on utilise directement x, y car le CollisionHandler utilise déjà les dimensions de la hitbox
+            // TODO: Si nécessaire, ajuster pour tenir compte du centrage de la hitbox
             float[] adjustedPos = collisionHandler.adjustPosition(x, y, newX, newY);
             x = adjustedPos[0];
             y = adjustedPos[1];

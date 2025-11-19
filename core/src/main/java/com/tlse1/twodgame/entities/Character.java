@@ -22,6 +22,11 @@ public abstract class Character {
     private float width;
     private float height;
     
+    // Hitbox fixe pour les collisions et les dégâts (indépendante des sprites visuels)
+    // Par défaut, utilise les dimensions visuelles, mais peut être surchargée dans les sous-classes
+    protected float hitboxWidth = 0f; // 0 = utilise width
+    protected float hitboxHeight = 0f; // 0 = utilise height
+    
     /**
      * Constructeur par défaut.
      * Initialise le personnage à la position (0, 0).
@@ -106,6 +111,43 @@ public abstract class Character {
     
     public float getHeight() {
         return height;
+    }
+    
+    // Hitbox (retourne la hitbox fixe si définie, sinon les dimensions visuelles)
+    public float getHitboxWidth() {
+        return hitboxWidth > 0 ? hitboxWidth : width;
+    }
+    
+    public float getHitboxHeight() {
+        return hitboxHeight > 0 ? hitboxHeight : height;
+    }
+    
+    public void setHitboxWidth(float hitboxWidth) {
+        this.hitboxWidth = hitboxWidth;
+    }
+    
+    public void setHitboxHeight(float hitboxHeight) {
+        this.hitboxHeight = hitboxHeight;
+    }
+    
+    /**
+     * Obtient la position X de la hitbox (centrée sur le sprite visuel).
+     * 
+     * @return Position X du coin bas-gauche de la hitbox
+     */
+    public float getHitboxX() {
+        float spriteCenterX = getX() + width / 2f;
+        return spriteCenterX - getHitboxWidth() / 2f;
+    }
+    
+    /**
+     * Obtient la position Y de la hitbox (centrée sur le sprite visuel).
+     * 
+     * @return Position Y du coin bas-gauche de la hitbox
+     */
+    public float getHitboxY() {
+        float spriteCenterY = getY() + height / 2f;
+        return spriteCenterY - getHitboxHeight() / 2f;
     }
     
     // Direction

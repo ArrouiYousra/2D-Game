@@ -59,6 +59,10 @@ public class Player extends Character {
         combatHandler.setMaxShield(3);
         combatHandler.setShield(3);
         
+        // Définir la hitbox fixe du joueur (20x27 pixels, centrée sur le sprite visuel)
+        setHitboxWidth(13f);
+        setHitboxHeight(15f);
+        
         // Initialiser l'inventaire
         inventory = new Inventory();
         

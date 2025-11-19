@@ -2,6 +2,7 @@ package com.tlse1.twodgame.entities;
 
 import com.badlogic.gdx.Gdx;
 import com.tlse1.twodgame.entities.handlers.AnimationLoader;
+import com.tlse1.twodgame.managers.JsonMapLoader;
 import com.tlse1.twodgame.utils.Direction;
 
 /**
@@ -29,6 +30,9 @@ public class Enemy extends Character {
     // Cooldown entre les attaques
     private float attackCooldown = 0f;
     private float attackCooldownTime = 2.0f;
+    
+    // Référence à la map pour créer des projectiles (peut être null)
+    protected JsonMapLoader mapLoader;
     
     /**
      * Constructeur par défaut.
@@ -195,20 +199,10 @@ public class Enemy extends Character {
             return;
         }
         
-        // Calculer la portée d'attaque basée sur les hitboxes
-        // Utiliser la hitbox dynamique si c'est un Slime en train d'attaquer
+        // Utiliser la hitbox fixe pour tous les ennemis (slimes et vampires)
+        // Les slimes ont une hitbox fixe de 17x16, les vampires de 30x30
         float currentHitboxWidth = hitboxWidth;
         float currentHitboxHeight = hitboxHeight;
-        
-        if (this instanceof Slime) {
-            Slime slime = (Slime) this;
-            float[] attackHitbox = slime.getCurrentAttackHitbox();
-            if (attackHitbox != null) {
-                // Utiliser la hitbox dynamique de l'animation d'attaque
-                currentHitboxWidth = attackHitbox[0];
-                currentHitboxHeight = attackHitbox[1];
-            }
-        }
         
         // Calculer la direction vers le joueur (peut être surchargée dans les sous-classes)
         Direction directionToTarget = calculateDirectionToTarget(dx, dy);
@@ -219,10 +213,9 @@ public class Enemy extends Character {
         float enemyHitboxY = enemySpriteCenterY - currentHitboxHeight / 2f;
         
         // Position de la hitbox du joueur (centrée sur le sprite)
-        // Pour les collisions avec l'ennemi, on utilise toujours les dimensions normales du joueur
-        // Les hitboxes d'attaque du joueur sont uniquement utilisées quand le joueur attaque
-        float playerHitboxWidth = target.getWidth();
-        float playerHitboxHeight = target.getHeight();
+        // Utiliser la hitbox fixe du joueur (20x27) au lieu des dimensions visuelles
+        float playerHitboxWidth = target.getHitboxWidth();
+        float playerHitboxHeight = target.getHitboxHeight();
         
         float playerHitboxX = targetCenterX - playerHitboxWidth / 2f;
         float playerHitboxY = targetCenterY - playerHitboxHeight / 2f;
@@ -233,30 +226,62 @@ public class Enemy extends Character {
                                    enemyHitboxY < playerHitboxY + playerHitboxHeight &&
                                    enemyHitboxY + currentHitboxHeight > playerHitboxY);
         
-        // Si les hitboxes se touchent et que le cooldown est prêt
-        if (hitboxesCollide && attackCooldown <= 0) {
-            // Se tourner vers le joueur avant d'attaquer
-            setCurrentDirection(directionToTarget);
-            attack();
-            attackCooldown = attackCooldownTime;
-            animationHandler.setMoving(false);
-            animationHandler.setRunning(false);
-            
-            // Infliger des dégâts au joueur si c'est un Player
-            if (target instanceof Player) {
-                Player player = (Player) target;
-                player.takeDamage(1); // 1 dégât par attaque
+        // Si le joueur est à portée d'attaque et que le cooldown est prêt
+        // Pour les vampires, on attaque à distance (projectile), donc on vérifie la distance, pas la collision
+        float distanceToTarget = (float) Math.sqrt(dx * dx + dy * dy);
+        boolean inAttackRange = distanceToTarget <= attackRange;
+        
+        // Pour les vampires : attaquer à distance, mais continuer à se déplacer vers le joueur
+        // Pour les slimes : attaquer au corps à corps, s'arrêter quand les hitboxes se touchent
+        boolean isVampire = this instanceof Vampire;
+        
+        if (isVampire) {
+            // Logique pour les vampires (attaque à distance)
+            if (inAttackRange && attackCooldown <= 0) {
+                // Se tourner vers le joueur et attaquer
+                setCurrentDirection(directionToTarget);
+                attack();
+                attackCooldown = attackCooldownTime;
+                // Note: Les projectiles des vampires sont créés dans GameScreen après updateAI()
             }
-        } else if (!hitboxesCollide) {
-            // Les hitboxes ne se touchent pas, se déplacer vers le joueur en courant
-            movementHandler.move(directionToTarget, deltaTime, true); // true = run
-            // S'assurer que l'animation est bien en mode "running"
-            animationHandler.setRunning(true);
+            
+            // Vérifier si les hitboxes se touchent (collision avec le joueur)
+            // Si oui, le vampire ne peut plus se déplacer
+            if (hitboxesCollide) {
+                // Les hitboxes se touchent, ne pas se déplacer mais regarder vers le joueur
+                setCurrentDirection(directionToTarget);
+                animationHandler.setMoving(false);
+                animationHandler.setRunning(false);
+            } else {
+                // Les hitboxes ne se touchent pas, se déplacer vers le joueur
+                movementHandler.move(directionToTarget, deltaTime, true); // true = run
+                animationHandler.setRunning(true);
+            }
         } else {
-            // Les hitboxes se touchent mais en cooldown, rester immobile mais regarder vers le joueur
-            setCurrentDirection(directionToTarget);
-            animationHandler.setMoving(false);
-            animationHandler.setRunning(false);
+            // Logique pour les slimes (corps à corps)
+            if (hitboxesCollide && attackCooldown <= 0) {
+                // Se tourner vers le joueur avant d'attaquer
+                setCurrentDirection(directionToTarget);
+                attack();
+                attackCooldown = attackCooldownTime;
+                animationHandler.setMoving(false);
+                animationHandler.setRunning(false);
+                
+                // Infliger des dégâts au joueur
+                if (target instanceof Player) {
+                    Player player = (Player) target;
+                    player.takeDamage(1); // 1 dégât par attaque
+                }
+            } else if (!hitboxesCollide) {
+                // Les hitboxes ne se touchent pas, se déplacer vers le joueur en courant
+                movementHandler.move(directionToTarget, deltaTime, true); // true = run
+                animationHandler.setRunning(true);
+            } else {
+                // Les hitboxes se touchent mais en cooldown, rester immobile mais regarder vers le joueur
+                setCurrentDirection(directionToTarget);
+                animationHandler.setMoving(false);
+                animationHandler.setRunning(false);
+            }
         }
     }
     
@@ -303,6 +328,14 @@ public class Enemy extends Character {
         this.attackRange = attackRange;
     }
     
+    public float getAttackCooldownTime() {
+        return attackCooldownTime;
+    }
+    
+    public void setAttackCooldownTime(float attackCooldownTime) {
+        this.attackCooldownTime = attackCooldownTime;
+    }
+    
     public float getHitboxWidth() {
         return hitboxWidth;
     }
@@ -317,5 +350,25 @@ public class Enemy extends Character {
     
     public void setHitboxHeight(float hitboxHeight) {
         this.hitboxHeight = hitboxHeight;
+    }
+    
+    /**
+     * Définit la référence à la map pour créer des projectiles.
+     * 
+     * @param mapLoader Référence à la map
+     */
+    public void setMapLoader(JsonMapLoader mapLoader) {
+        this.mapLoader = mapLoader;
+    }
+    
+    /**
+     * Crée un projectile lors de l'attaque. Par défaut, retourne null.
+     * Peut être surchargée dans les sous-classes (ex: Vampire) pour créer des projectiles.
+     * 
+     * @return Le projectile créé, ou null si cet ennemi n'utilise pas de projectiles
+     */
+    public Projectile createProjectileOnAttack() {
+        // Par défaut, pas de projectile (pour les slimes par exemple)
+        return null;
     }
 }
