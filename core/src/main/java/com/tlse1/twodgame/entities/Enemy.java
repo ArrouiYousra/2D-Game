@@ -1,218 +1,374 @@
 package com.tlse1.twodgame.entities;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.graphics.g2d.Animation;
-import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.tlse1.twodgame.entities.handlers.AnimationLoader;
+import com.tlse1.twodgame.managers.JsonMapLoader;
 import com.tlse1.twodgame.utils.Direction;
 
 /**
- * Classe représentant un ennemi.
- * Implémente une IA simple qui suit le joueur.
+ * Classe représentant un ennemi dans le jeu.
+ * Hérite de Character et charge les animations du vampire.
  */
 public class Enemy extends Character {
     
-    // Référence au joueur à suivre
-    private Player target;
+    // Vitesse de l'ennemi
+    private float speed;
     
-    // Distance de détection (si le joueur est trop loin, l'ennemi ne bouge pas)
+    // IA : cible (joueur)
+    private Character target;
+    
+    // Distance d'attaque
+    private float attackRange = 80f;
+    
+    // Portée de détection du joueur (distance à laquelle l'ennemi commence à poursuivre)
     private float detectionRange = 300f;
     
+    // Hitbox fixe pour les collisions et attaques (indépendante des sprites visuels)
+    private float hitboxWidth = 16f;
+    private float hitboxHeight = 16f;
+    
+    // Cooldown entre les attaques
+    private float attackCooldown = 0f;
+    private float attackCooldownTime = 2.0f;
+    
+    // Référence à la map pour créer des projectiles (peut être null)
+    protected JsonMapLoader mapLoader;
+    
     /**
-     * Constructeur par défaut
+     * Constructeur par défaut.
      */
     public Enemy() {
-        super();
-        initializeEnemy();
+        this(0, 0);
     }
     
     /**
-     * Constructeur avec position initiale
+     * Constructeur avec position.
+     * 
+     * @param x Position X initiale
+     * @param y Position Y initiale
      */
     public Enemy(float x, float y) {
         super(x, y);
-        initializeEnemy();
+        this.speed = 100f;
+        this.target = null;
+        this.attackCooldown = 0f;
+        
+        // Configurer la santé de l'ennemi (100 HP)
+        combatHandler.setMaxHealth(100);
+        combatHandler.setHealth(100);
+        
+        // Configurer la vitesse
+        movementHandler.setSpeed(speed);
+        
+        // Ne pas charger les animations ici - les sous-classes (Vampire, Slime) le feront
+        // après avoir initialisé leurs propriétés spécifiques (level, etc.)
+        // loadAnimations();
+        
+        // Définir l'animation par défaut (sera fait après le chargement des animations dans les sous-classes)
+        // animationHandler.update(0f);
     }
     
     /**
-     * Constructeur complet
+     * Charge toutes les animations du vampire depuis les fichiers JSON.
+     * Les sprites sont organisés en grille : 4 lignes (directions) x N colonnes
+     * Ligne 1 (y=0-63): DOWN, Ligne 2 (y=64-127): UP, Ligne 3 (y=128-191): LEFT, Ligne 4 (y=192-255): RIGHT
+     * yRanges format: [DOWN_MIN, DOWN_MAX, SIDE_LEFT_MIN, SIDE_LEFT_MAX, SIDE_MIN, SIDE_MAX, UP_MIN, UP_MAX]
      */
-    public Enemy(float x, float y, float speed, int maxHealth) {
-        super(x, y, speed, maxHealth);
-        initializeEnemy();
+    @Override
+    protected void loadAnimations() {
+        // Idle: 4 sprites par direction
+        // yRanges: [DOWN: 0-63, SIDE_LEFT: 128-191, SIDE: 192-255, UP: 64-127]
+        AnimationLoader.loadAnimation(animationHandler,
+            "vampire_sprite_sheets/vampires1_idle_sprites.json",
+            "vampire_sprite_sheets/PNG/Vampires1/With_shadow/Vampires1_Idle_with_shadow.png",
+            "idle", 0.15f, new int[]{0, 63, 128, 191, 192, 255, 64, 127}, true);
+        
+        // Walk: 6 sprites par direction
+        AnimationLoader.loadAnimation(animationHandler,
+            "vampire_sprite_sheets/vampires1_walk_sprites.json",
+            "vampire_sprite_sheets/PNG/Vampires1/With_shadow/Vampires1_Walk_with_shadow.png",
+            "walk", 0.12f, new int[]{0, 63, 128, 191, 192, 255, 64, 127}, true);
+        
+        // Run: 8 sprites par direction
+        AnimationLoader.loadAnimation(animationHandler,
+            "vampire_sprite_sheets/vampires1_run_sprites.json",
+            "vampire_sprite_sheets/PNG/Vampires1/With_shadow/Vampires1_Run_with_shadow.png",
+            "run", 0.10f, new int[]{0, 63, 128, 191, 192, 255, 64, 127}, true);
+        
+        // Attack: 12 sprites par direction
+        AnimationLoader.loadAnimation(animationHandler,
+            "vampire_sprite_sheets/vampires1_attack_sprites.json",
+            "vampire_sprite_sheets/PNG/Vampires1/With_shadow/Vampires1_Attack_with_shadow.png",
+            "attack", 0.08f, new int[]{0, 63, 128, 191, 192, 255, 64, 127}, false);
+        
+        // Walk Attack: Les vampires n'ont pas d'animation walk attack spécifique
+        // (laissé vide, utilisera l'animation attack normale)
+        
+        // Run Attack: Les vampires n'ont pas d'animation run attack spécifique
+        // (laissé vide, utilisera l'animation attack normale)
+        
+        // Hurt: 4 sprites par direction
+        AnimationLoader.loadAnimation(animationHandler,
+            "vampire_sprite_sheets/vampires1_hurt_sprites.json",
+            "vampire_sprite_sheets/PNG/Vampires1/With_shadow/Vampires1_Hurt_with_shadow.png",
+            "hurt", 0.1f, new int[]{0, 63, 128, 191, 192, 255, 64, 127}, false);
+        
+        // Death: À venir (l'utilisateur doit redécouper)
+        // AnimationLoader.loadAnimation(animationHandler,
+        //     "vampire_sprite_sheets/vampires1_death_sprites.json",
+        //     "vampire_sprite_sheets/PNG/Vampires1/With_shadow/Vampires1_Death_with_shadow.png",
+        //     "death", 0.15f, new int[]{0, 63, 128, 191, 192, 255, 64, 127}, false);
     }
     
     /**
-     * Constructeur avec cible (joueur)
+     * Définit la cible (joueur) pour l'IA.
+     * 
+     * @param target Le personnage à cibler
      */
-    public Enemy(float x, float y, float speed, int maxHealth, Player target) {
-        super(x, y, speed, maxHealth);
+    public void setTarget(Character target) {
         this.target = target;
-        initializeEnemy();
     }
     
     /**
-     * Initialise l'ennemi (appelé dans les constructeurs)
+     * Met à jour l'IA de l'ennemi.
+     * 
+     * @param deltaTime Temps écoulé depuis la dernière frame
      */
-    private void initializeEnemy() {
-        // Vitesse par défaut de l'ennemi
-        if (speed == 0) {
-            speed = 80f; // pixels par seconde (plus lent que le joueur)
+    public void updateAI(float deltaTime) {
+        // Si l'ennemi est mort, ne pas mettre à jour l'IA
+        if (isDead()) {
+            return;
         }
         
-        // Configurer les chemins d'assets pour les zombies
-        idlePathPrefix = "PostApocalypse_AssetPack_v1.1.2/Enemies/Zombie_Small/";
-        runPathPrefix = "PostApocalypse_AssetPack_v1.1.2/Enemies/Zombie_Small/";
-        spriteName = "Zombie_Small";
-        
-        // Initialiser toutes les animations
-        initializeAnimations();
-        
-        // Direction par défaut
-        currentDirection = Direction.DOWN;
-    }
-    
-    /**
-     * Charge une animation idle pour une direction donnée (surcharge pour utiliser les assets de zombie)
-     */
-    @Override
-    protected void loadIdleAnimation(Direction direction) {
-        String path = buildEnemyAnimationPath(idlePathPrefix, direction, "Idle");
-        Animation<TextureRegion> animation = loadAnimation(path);
-        
-        // Stocker la texture pour pouvoir la libérer
-        TextureRegion firstFrame = animation.getKeyFrame(0);
-        if (firstFrame != null && firstFrame.getTexture() != null) {
-            textures.add(firstFrame.getTexture());
+        if (target == null || !target.isAlive()) {
+            // Pas de cible ou cible morte, rester en idle DOWN
+            animationHandler.setCurrentDirection(Direction.DOWN);
+            animationHandler.setMoving(false);
+            animationHandler.setRunning(false);
+            return;
         }
         
-        addIdleAnimation(direction, animation);
-    }
-    
-    /**
-     * Charge une animation run/walk pour une direction donnée (surcharge pour utiliser les assets de zombie)
-     */
-    @Override
-    protected void loadRunAnimation(Direction direction) {
-        // Les zombies utilisent "walk" au lieu de "run"
-        // Note: "Down" utilise "walk" (minuscule), les autres utilisent "Walk" (majuscule)
-        String action = (direction == Direction.DOWN) ? "walk" : "Walk";
-        String path = buildEnemyAnimationPath(runPathPrefix, direction, action);
-        Animation<TextureRegion> animation = loadAnimation(path);
-        
-        // Stocker la texture pour pouvoir la libérer
-        TextureRegion firstFrame = animation.getKeyFrame(0);
-        if (firstFrame != null && firstFrame.getTexture() != null) {
-            textures.add(firstFrame.getTexture());
+        // Mettre à jour le cooldown d'attaque
+        if (attackCooldown > 0) {
+            attackCooldown -= deltaTime;
         }
         
-        addRunAnimation(direction, animation);
-    }
-    
-    /**
-     * Construit le chemin vers l'animation d'ennemi selon la direction
-     */
-    private String buildEnemyAnimationPath(String prefix, Direction direction, String action) {
-        String directionName = getEnemyDirectionName(direction);
-        // Format: Zombie_Small_Down_Idle-Sheet6.png ou Zombie_Small_Down_walk-Sheet6.png
-        return prefix + spriteName + "_" + directionName + "_" + action + "-Sheet6.png";
-    }
-    
-    /**
-     * Retourne le nom de direction pour les fichiers d'assets d'ennemi
-     */
-    private String getEnemyDirectionName(Direction direction) {
-        switch (direction) {
-            case DOWN:
-                return "Down";
-            case UP:
-                return "Up";
-            case SIDE:
-                return "Side";
-            case SIDE_LEFT:
-                return "Side-left";
-            default:
-                return "Down";
+        // Vérifier que les dimensions sont initialisées
+        // Si les dimensions ne sont pas encore initialisées, attendre
+        if (getWidth() <= 0 || getHeight() <= 0) {
+            // L'ennemi n'a pas encore de dimensions, attendre
+            // Log pour déboguer
+            if (this instanceof Vampire) {
+                Vampire v = (Vampire) this;
+                Gdx.app.log("Enemy", String.format("Vampire niveau %d: dimensions pas encore initialisées (%.1fx%.1f)", 
+                    v.getLevel(), getWidth(), getHeight()));
+            }
+            animationHandler.setCurrentDirection(Direction.DOWN);
+            animationHandler.setMoving(false);
+            animationHandler.setRunning(false);
+            return;
         }
-    }
-    
-    /**
-     * Met à jour l'ennemi : gère l'IA et le mouvement.
-     * L'ennemi suit le joueur s'il est à portée.
-     */
-    @Override
-    public void update(float deltaTime) {
-        if (target != null && target.isAlive()) {
-            // Calculer la distance au joueur
-            float dx = target.getX() - x;
-            float dy = target.getY() - y;
-            float distance = (float) Math.sqrt(dx * dx + dy * dy);
+        
+        // Si le joueur n'a pas encore de dimensions, attendre aussi
+        if (target.getWidth() <= 0 || target.getHeight() <= 0) {
+            animationHandler.setCurrentDirection(Direction.DOWN);
+            animationHandler.setMoving(false);
+            animationHandler.setRunning(false);
+            return;
+        }
+        
+        // Calculer la distance au joueur (centre à centre)
+        // Le centre de la hitbox est aligné avec le centre du sprite visuel
+        float enemySpriteCenterX = getX() + getWidth() / 2f;
+        float enemySpriteCenterY = getY() + getHeight() / 2f;
+        float enemyCenterX = enemySpriteCenterX; // Hitbox centrée sur le sprite
+        float enemyCenterY = enemySpriteCenterY; // Hitbox centrée sur le sprite
+        
+        float targetCenterX = target.getX() + target.getWidth() / 2f;
+        float targetCenterY = target.getY() + target.getHeight() / 2f;
+        
+        float dx = targetCenterX - enemyCenterX;
+        float dy = targetCenterY - enemyCenterY;
+        float distance = (float) Math.sqrt(dx * dx + dy * dy);
+        
+        // Si le joueur est hors de portée de détection, rester en idle DOWN
+        if (distance > detectionRange) {
+            animationHandler.setCurrentDirection(Direction.DOWN);
+            animationHandler.setMoving(false);
+            animationHandler.setRunning(false);
+            return;
+        }
+        
+        // Utiliser la hitbox fixe pour tous les ennemis (slimes et vampires)
+        // Les slimes ont une hitbox fixe de 17x16, les vampires de 30x30
+        float currentHitboxWidth = hitboxWidth;
+        float currentHitboxHeight = hitboxHeight;
+        
+        // Calculer la direction vers le joueur (peut être surchargée dans les sous-classes)
+        Direction directionToTarget = calculateDirectionToTarget(dx, dy);
+        
+        // Vérifier la collision rectangle-rectangle entre les hitboxes
+        // Position de la hitbox de l'ennemi (centrée sur le sprite)
+        float enemyHitboxX = enemySpriteCenterX - currentHitboxWidth / 2f;
+        float enemyHitboxY = enemySpriteCenterY - currentHitboxHeight / 2f;
+        
+        // Position de la hitbox du joueur (centrée sur le sprite)
+        // Utiliser la hitbox fixe du joueur (20x27) au lieu des dimensions visuelles
+        float playerHitboxWidth = target.getHitboxWidth();
+        float playerHitboxHeight = target.getHitboxHeight();
+        
+        float playerHitboxX = targetCenterX - playerHitboxWidth / 2f;
+        float playerHitboxY = targetCenterY - playerHitboxHeight / 2f;
+        
+        // Vérifier si les rectangles se chevauchent (collision AABB)
+        boolean hitboxesCollide = (enemyHitboxX < playerHitboxX + playerHitboxWidth &&
+                                   enemyHitboxX + currentHitboxWidth > playerHitboxX &&
+                                   enemyHitboxY < playerHitboxY + playerHitboxHeight &&
+                                   enemyHitboxY + currentHitboxHeight > playerHitboxY);
+        
+        // Si le joueur est à portée d'attaque et que le cooldown est prêt
+        // Pour les vampires, on attaque à distance (projectile), donc on vérifie la distance, pas la collision
+        float distanceToTarget = (float) Math.sqrt(dx * dx + dy * dy);
+        boolean inAttackRange = distanceToTarget <= attackRange;
+        
+        // Pour les vampires : attaquer à distance, mais continuer à se déplacer vers le joueur
+        // Pour les slimes : attaquer au corps à corps, s'arrêter quand les hitboxes se touchent
+        boolean isVampire = this instanceof Vampire;
+        
+        if (isVampire) {
+            // Logique pour les vampires (attaque à distance)
+            if (inAttackRange && attackCooldown <= 0) {
+                // Se tourner vers le joueur et attaquer
+                setCurrentDirection(directionToTarget);
+                attack();
+                attackCooldown = attackCooldownTime;
+                // Note: Les projectiles des vampires sont créés dans GameScreen après updateAI()
+            }
             
-            // Si le joueur est à portée, le suivre
-            if (distance <= detectionRange && distance > 5f) { // 5f = distance minimale pour éviter les tremblements
-                isMoving = true;
-                
-                // Normaliser la direction pour un mouvement uniforme
-                dx /= distance;
-                dy /= distance;
-                
-                // Déplacer l'ennemi vers le joueur
-                x += dx * speed * deltaTime;
-                y += dy * speed * deltaTime;
-                
-                // Déterminer la direction selon le mouvement
-                updateDirection(dx, dy);
+            // Vérifier si les hitboxes se touchent (collision avec le joueur)
+            // Si oui, le vampire ne peut plus se déplacer
+            if (hitboxesCollide) {
+                // Les hitboxes se touchent, ne pas se déplacer mais regarder vers le joueur
+                setCurrentDirection(directionToTarget);
+                animationHandler.setMoving(false);
+                animationHandler.setRunning(false);
             } else {
-                // Le joueur est trop loin ou trop proche, rester immobile
-                isMoving = false;
+                // Les hitboxes ne se touchent pas, se déplacer vers le joueur
+                movementHandler.move(directionToTarget, deltaTime, true); // true = run
+                animationHandler.setRunning(true);
             }
         } else {
-            // Pas de cible, rester immobile
-            isMoving = false;
+            // Logique pour les slimes (corps à corps)
+            if (hitboxesCollide && attackCooldown <= 0) {
+                // Se tourner vers le joueur avant d'attaquer
+                setCurrentDirection(directionToTarget);
+                attack();
+                attackCooldown = attackCooldownTime;
+                animationHandler.setMoving(false);
+                animationHandler.setRunning(false);
+                
+                // Infliger des dégâts au joueur
+                if (target instanceof Player) {
+                    Player player = (Player) target;
+                    player.takeDamage(1); // 1 dégât par attaque
+                }
+            } else if (!hitboxesCollide) {
+                // Les hitboxes ne se touchent pas, se déplacer vers le joueur en courant
+                movementHandler.move(directionToTarget, deltaTime, true); // true = run
+                animationHandler.setRunning(true);
+            } else {
+                // Les hitboxes se touchent mais en cooldown, rester immobile mais regarder vers le joueur
+                setCurrentDirection(directionToTarget);
+                animationHandler.setMoving(false);
+                animationHandler.setRunning(false);
+            }
         }
-        
-        // Appeler la méthode update de la classe mère pour gérer les animations
-        super.update(deltaTime);
-        
-        // Limiter l'ennemi dans les bounds de l'écran
-        clampToBounds(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
     }
     
     /**
-     * Met à jour la direction de l'ennemi selon le vecteur de mouvement
+     * Calcule la direction vers la cible. Peut être surchargée dans les sous-classes
+     * pour gérer les différences d'organisation des sprites.
+     * 
+     * @param dx Différence X (cible - ennemi)
+     * @param dy Différence Y (cible - ennemi)
+     * @return Direction vers la cible
      */
-    private void updateDirection(float dx, float dy) {
-        // Déterminer la direction principale selon le plus grand déplacement
+    protected Direction calculateDirectionToTarget(float dx, float dy) {
+        // Par défaut, les sprites du vampire ont SIDE et SIDE_LEFT inversés
         if (Math.abs(dx) > Math.abs(dy)) {
-            // Mouvement horizontal
             if (dx > 0) {
-                currentDirection = Direction.SIDE; // Droite
+                return Direction.SIDE_LEFT; // Joueur à droite -> utiliser SIDE_LEFT (inversé)
             } else {
-                currentDirection = Direction.SIDE_LEFT; // Gauche
+                return Direction.SIDE; // Joueur à gauche -> utiliser SIDE (inversé)
             }
         } else {
-            // Mouvement vertical
             if (dy > 0) {
-                currentDirection = Direction.UP; // Haut
+                return Direction.UP;
             } else {
-                currentDirection = Direction.DOWN; // Bas
+                return Direction.DOWN;
             }
         }
     }
     
     // Getters et Setters
-    public Player getTarget() {
-        return target;
+    public float getSpeed() {
+        return speed;
     }
     
-    public void setTarget(Player target) {
-        this.target = target;
+    public void setSpeed(float speed) {
+        this.speed = speed;
+        movementHandler.setSpeed(speed);
     }
     
-    public float getDetectionRange() {
-        return detectionRange;
+    public float getAttackRange() {
+        return attackRange;
     }
     
-    public void setDetectionRange(float detectionRange) {
-        this.detectionRange = detectionRange;
+    public void setAttackRange(float attackRange) {
+        this.attackRange = attackRange;
+    }
+    
+    public float getAttackCooldownTime() {
+        return attackCooldownTime;
+    }
+    
+    public void setAttackCooldownTime(float attackCooldownTime) {
+        this.attackCooldownTime = attackCooldownTime;
+    }
+    
+    public float getHitboxWidth() {
+        return hitboxWidth;
+    }
+    
+    public void setHitboxWidth(float hitboxWidth) {
+        this.hitboxWidth = hitboxWidth;
+    }
+    
+    public float getHitboxHeight() {
+        return hitboxHeight;
+    }
+    
+    public void setHitboxHeight(float hitboxHeight) {
+        this.hitboxHeight = hitboxHeight;
+    }
+    
+    /**
+     * Définit la référence à la map pour créer des projectiles.
+     * 
+     * @param mapLoader Référence à la map
+     */
+    public void setMapLoader(JsonMapLoader mapLoader) {
+        this.mapLoader = mapLoader;
+    }
+    
+    /**
+     * Crée un projectile lors de l'attaque. Par défaut, retourne null.
+     * Peut être surchargée dans les sous-classes (ex: Vampire) pour créer des projectiles.
+     * 
+     * @return Le projectile créé, ou null si cet ennemi n'utilise pas de projectiles
+     */
+    public Projectile createProjectileOnAttack() {
+        // Par défaut, pas de projectile (pour les slimes par exemple)
+        return null;
     }
 }

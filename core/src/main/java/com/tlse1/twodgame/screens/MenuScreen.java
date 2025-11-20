@@ -10,6 +10,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Rectangle;
 import com.tlse1.twodgame.TwoDGame;
+import com.tlse1.twodgame.screens.SettingsScreen;
 import com.tlse1.twodgame.utils.MenuMapping;
 
 /**
