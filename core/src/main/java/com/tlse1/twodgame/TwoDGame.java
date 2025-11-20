@@ -16,7 +16,7 @@ public class TwoDGame extends Game {
     @Override
     public void create() {
         // Démarrer avec le menu principal
-        setScreen(new GameSettingsScreen(this));
+        setScreen(new MenuScreen(this));
     }
     
     @Override
