@@ -34,6 +34,7 @@ public class Enemy extends Character {
     // Référence à la map pour créer des projectiles (peut être null)
     protected JsonMapLoader mapLoader;
     
+    
     /**
      * Constructeur par défaut.
      */
@@ -201,8 +202,9 @@ public class Enemy extends Character {
         
         // Utiliser la hitbox fixe pour tous les ennemis (slimes et vampires)
         // Les slimes ont une hitbox fixe de 17x16, les vampires de 30x30
-        float currentHitboxWidth = hitboxWidth;
-        float currentHitboxHeight = hitboxHeight;
+        // Utiliser les getters pour s'assurer que les hitboxes sont correctement initialisées
+        float currentHitboxWidth = getHitboxWidth();
+        float currentHitboxHeight = getHitboxHeight();
         
         // Calculer la direction vers le joueur (peut être surchargée dans les sous-classes)
         Direction directionToTarget = calculateDirectionToTarget(dx, dy);
@@ -220,67 +222,85 @@ public class Enemy extends Character {
         float playerHitboxX = targetCenterX - playerHitboxWidth / 2f;
         float playerHitboxY = targetCenterY - playerHitboxHeight / 2f;
         
-        // Vérifier si les rectangles se chevauchent (collision AABB)
-        boolean hitboxesCollide = (enemyHitboxX < playerHitboxX + playerHitboxWidth &&
-                                   enemyHitboxX + currentHitboxWidth > playerHitboxX &&
-                                   enemyHitboxY < playerHitboxY + playerHitboxHeight &&
-                                   enemyHitboxY + currentHitboxHeight > playerHitboxY);
+        // Vérifier si les rectangles se touchent (avec une tolérance de 1 pixel pour permettre un chevauchement)
+        // Cela permet aux hitboxes de se chevaucher de 1 pixel dans toutes les directions pour que les ennemis puissent attaquer
+        float touchTolerance = 1.0f; // Tolérance de 1 pixel pour permettre un chevauchement de 1 pixel dans toutes les directions
+        boolean hitboxesTouching = (enemyHitboxX < playerHitboxX + playerHitboxWidth + touchTolerance &&
+                                   enemyHitboxX + currentHitboxWidth + touchTolerance > playerHitboxX &&
+                                   enemyHitboxY < playerHitboxY + playerHitboxHeight + touchTolerance &&
+                                   enemyHitboxY + currentHitboxHeight + touchTolerance > playerHitboxY);
         
-        // Si le joueur est à portée d'attaque et que le cooldown est prêt
-        // Pour les vampires, on attaque à distance (projectile), donc on vérifie la distance, pas la collision
-        float distanceToTarget = (float) Math.sqrt(dx * dx + dy * dy);
-        boolean inAttackRange = distanceToTarget <= attackRange;
+        // Pour la détection d'attaque, utiliser la même condition que pour le blocage de mouvement
+        // Les ennemis attaquent dès que leurs hitboxes touchent celle du joueur (avec la tolérance)
+        boolean hitboxesCollide = hitboxesTouching;
         
-        // Pour les vampires : attaquer à distance, mais continuer à se déplacer vers le joueur
-        // Pour les slimes : attaquer au corps à corps, s'arrêter quand les hitboxes se touchent
-        boolean isVampire = this instanceof Vampire;
-        
-        if (isVampire) {
-            // Logique pour les vampires (attaque à distance)
-            if (inAttackRange && attackCooldown <= 0) {
-                // Se tourner vers le joueur et attaquer
-                setCurrentDirection(directionToTarget);
-                attack();
-                attackCooldown = attackCooldownTime;
-                // Note: Les projectiles des vampires sont créés dans GameScreen après updateAI()
+        // Tous les ennemis (vampires et slimes) attaquent au corps à corps
+        // Ils attaquent dès que leur hitbox touche celle du joueur
+        if (hitboxesCollide && attackCooldown <= 0) {
+            // Se tourner vers le joueur avant d'attaquer
+            setCurrentDirection(directionToTarget);
+            attack();
+            attackCooldown = attackCooldownTime;
+            animationHandler.setMoving(false);
+            animationHandler.setRunning(false);
+            
+            // Infliger des dégâts au joueur
+            if (target instanceof Player) {
+                Player player = (Player) target;
+                player.takeDamage(1); // 1 dégât par attaque
+            }
+        } else if (hitboxesTouching) {
+            // Les hitboxes se touchent vraiment mais en cooldown : s'arrêter et regarder vers le joueur
+            setCurrentDirection(directionToTarget);
+            animationHandler.setMoving(false);
+            animationHandler.setRunning(false);
+        } else {
+            // Les hitboxes ne se touchent pas : vérifier si on peut se déplacer sans causer de collision
+            // Calculer la nouvelle position de l'ennemi
+            float currentSpeed = getSpeed() * 1.5f; // Vitesse de course
+            float moveDistance = currentSpeed * deltaTime;
+            
+            float currentX = getX();
+            float currentY = getY();
+            float newX = currentX;
+            float newY = currentY;
+            
+            switch (directionToTarget) {
+                case UP:
+                    newY += moveDistance;
+                    break;
+                case DOWN:
+                    newY -= moveDistance;
+                    break;
+                case SIDE:
+                    newX += moveDistance;
+                    break;
+                case SIDE_LEFT:
+                    newX -= moveDistance;
+                    break;
             }
             
-            // Vérifier si les hitboxes se touchent (collision avec le joueur)
-            // Si oui, le vampire ne peut plus se déplacer
-            if (hitboxesCollide) {
-                // Les hitboxes se touchent, ne pas se déplacer mais regarder vers le joueur
+            // Calculer la hitbox de l'ennemi à sa nouvelle position
+            float newEnemySpriteCenterX = newX + getWidth() / 2f;
+            float newEnemySpriteCenterY = newY + getHeight() / 2f;
+            float newEnemyHitboxX = newEnemySpriteCenterX - currentHitboxWidth / 2f;
+            float newEnemyHitboxY = newEnemySpriteCenterY - currentHitboxHeight / 2f;
+            
+            // Vérifier si le mouvement causerait une collision avec le joueur (sans tolérance, collision stricte)
+            boolean wouldCollide = (newEnemyHitboxX < playerHitboxX + playerHitboxWidth &&
+                                   newEnemyHitboxX + currentHitboxWidth > playerHitboxX &&
+                                   newEnemyHitboxY < playerHitboxY + playerHitboxHeight &&
+                                   newEnemyHitboxY + currentHitboxHeight > playerHitboxY);
+            
+            if (wouldCollide) {
+                // Le mouvement causerait une collision : s'arrêter et regarder vers le joueur
                 setCurrentDirection(directionToTarget);
                 animationHandler.setMoving(false);
                 animationHandler.setRunning(false);
             } else {
-                // Les hitboxes ne se touchent pas, se déplacer vers le joueur
+                // Pas de collision : se déplacer vers le joueur en courant
                 movementHandler.move(directionToTarget, deltaTime, true); // true = run
                 animationHandler.setRunning(true);
-            }
-        } else {
-            // Logique pour les slimes (corps à corps)
-            if (hitboxesCollide && attackCooldown <= 0) {
-                // Se tourner vers le joueur avant d'attaquer
-                setCurrentDirection(directionToTarget);
-                attack();
-                attackCooldown = attackCooldownTime;
-                animationHandler.setMoving(false);
-                animationHandler.setRunning(false);
-                
-                // Infliger des dégâts au joueur
-                if (target instanceof Player) {
-                    Player player = (Player) target;
-                    player.takeDamage(1); // 1 dégât par attaque
-                }
-            } else if (!hitboxesCollide) {
-                // Les hitboxes ne se touchent pas, se déplacer vers le joueur en courant
-                movementHandler.move(directionToTarget, deltaTime, true); // true = run
-                animationHandler.setRunning(true);
-            } else {
-                // Les hitboxes se touchent mais en cooldown, rester immobile mais regarder vers le joueur
-                setCurrentDirection(directionToTarget);
-                animationHandler.setMoving(false);
-                animationHandler.setRunning(false);
             }
         }
     }
@@ -326,6 +346,14 @@ public class Enemy extends Character {
     
     public void setAttackRange(float attackRange) {
         this.attackRange = attackRange;
+    }
+    
+    public float getDetectionRange() {
+        return detectionRange;
+    }
+    
+    public void setDetectionRange(float detectionRange) {
+        this.detectionRange = detectionRange;
     }
     
     public float getAttackCooldownTime() {
