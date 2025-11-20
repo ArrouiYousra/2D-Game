@@ -24,6 +24,7 @@ import com.tlse1.twodgame.ui.ShieldBar;
 import com.tlse1.twodgame.utils.ActionPanelMapping;
 import com.tlse1.twodgame.utils.CharacterPanelMapping;
 import com.tlse1.twodgame.utils.Direction;
+import com.tlse1.twodgame.screens.GameSettingsScreen;
 
 /**
  * Écran de jeu principal.
@@ -39,9 +40,9 @@ public class GameScreen implements Screen {
     private Viewport viewport;
     private Player player;
 
-    private RoomManager roomManager;
+    /* private RoomManager roomManager;
     private RoomTransition transition;
-    private HUD hud;
+    private HUD hud; */
 
     private static final int WINDOWED_WIDTH = 1280;
     private static final int WINDOWED_HEIGHT = 720;
@@ -516,52 +517,69 @@ public class GameScreen implements Screen {
     /**
      * Gère l'input clavier et met à jour la position et la direction du personnage.
      */
-    private void handleInput(float deltaTime) {
-        // Si le joueur est mort, ne pas gérer l'input
-        if (!player.isAlive()) {
-            player.getMovementHandler().stop();
-            return;
-        }
-        
-        Direction moveDirection = null;
-        
-        // Vérifier si Shift est pressé pour courir
-        boolean isRunning = Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT) || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
-        
-        // Gérer les touches directionnelles : Z/W/Flèche haut, S/Flèche bas, Q/A/Flèche gauche, D/Flèche droite
-        if (Gdx.input.isKeyPressed(Input.Keys.UP) || Gdx.input.isKeyPressed(Input.Keys.W) || Gdx.input.isKeyPressed(Input.Keys.Z)) {
-            moveDirection = Direction.UP;
-        } else if (Gdx.input.isKeyPressed(Input.Keys.DOWN) || Gdx.input.isKeyPressed(Input.Keys.S)) {
-            moveDirection = Direction.DOWN;
-        } else if (Gdx.input.isKeyPressed(Input.Keys.LEFT) || Gdx.input.isKeyPressed(Input.Keys.A) || Gdx.input.isKeyPressed(Input.Keys.Q)) {
-            moveDirection = Direction.SIDE_LEFT;
-        } else if (Gdx.input.isKeyPressed(Input.Keys.RIGHT) || Gdx.input.isKeyPressed(Input.Keys.D)) {
-            moveDirection = Direction.SIDE;
-        }
-        
-        // Déplacer le joueur si une direction est pressée
-        if (moveDirection != null) {
-            player.getMovementHandler().move(moveDirection, deltaTime, isRunning);
-        } else {
-            player.getMovementHandler().stop();
-        }
-        
-        // Gérer l'attaque (touche E)
-        if (Gdx.input.isKeyJustPressed(Input.Keys.E)) {
-            player.attack();
-        }
-        
-        // Gérer l'utilisation des items
-        // Touche 1 pour utiliser un heal
-        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1) || Gdx.input.isKeyJustPressed(Input.Keys.NUMPAD_1)) {
-            player.useHealItem();
-        }
-        
-        // Touche 2 pour utiliser un shield
-        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2) || Gdx.input.isKeyJustPressed(Input.Keys.NUMPAD_2)) {
-            player.useShieldItem();
-        }
+    /**
+ * Gère l'input clavier et met à jour la position et la direction du personnage.
+ */
+private void handleInput(float deltaTime) {
+    // Gérer la touche ESC pour ouvrir les paramètres
+    if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+        openGameSettings();
+        return;
     }
+    
+    // Si le joueur est mort, ne pas gérer l'input
+    if (!player.isAlive()) {
+        player.getMovementHandler().stop();
+        return;
+    }
+    
+    Direction moveDirection = null;
+    
+    // Vérifier si Shift est pressé pour courir
+    boolean isRunning = Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT) || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
+    
+    // Gérer les touches directionnelles : Z/W/Flèche haut, S/Flèche bas, Q/A/Flèche gauche, D/Flèche droite
+    if (Gdx.input.isKeyPressed(Input.Keys.UP) || Gdx.input.isKeyPressed(Input.Keys.W) || Gdx.input.isKeyPressed(Input.Keys.Z)) {
+        moveDirection = Direction.UP;
+    } else if (Gdx.input.isKeyPressed(Input.Keys.DOWN) || Gdx.input.isKeyPressed(Input.Keys.S)) {
+        moveDirection = Direction.DOWN;
+    } else if (Gdx.input.isKeyPressed(Input.Keys.LEFT) || Gdx.input.isKeyPressed(Input.Keys.A) || Gdx.input.isKeyPressed(Input.Keys.Q)) {
+        moveDirection = Direction.SIDE_LEFT;
+    } else if (Gdx.input.isKeyPressed(Input.Keys.RIGHT) || Gdx.input.isKeyPressed(Input.Keys.D)) {
+        moveDirection = Direction.SIDE;
+    }
+    
+    // Déplacer le joueur si une direction est pressée
+    if (moveDirection != null) {
+        player.getMovementHandler().move(moveDirection, deltaTime, isRunning);
+    } else {
+        player.getMovementHandler().stop();
+    }
+    
+    // Gérer l'attaque (touche E)
+    if (Gdx.input.isKeyJustPressed(Input.Keys.E)) {
+        player.attack();
+    }
+    
+    // Gérer l'utilisation des items
+    // Touche 1 pour utiliser un heal
+    if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1) || Gdx.input.isKeyJustPressed(Input.Keys.NUMPAD_1)) {
+        player.useHealItem();
+    }
+    
+    // Touche 2 pour utiliser un shield
+    if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2) || Gdx.input.isKeyJustPressed(Input.Keys.NUMPAD_2)) {
+        player.useShieldItem();
+    }
+}
+
+/**
+ * Ouvre l'écran des paramètres du jeu
+ */
+private void openGameSettings() {
+    Gdx.app.log("GameScreen", "Ouverture des paramètres du jeu");
+    game.setScreen(new GameSettingsScreen(game));
+}
     
     /**
      * Gère l'attaque du joueur sur les ennemis.
