@@ -1,7 +1,9 @@
 package com.tlse1.twodgame;
 
 import com.badlogic.gdx.Game;
-import com.tlse1.twodgame.screens.GameScreen;
+
+import com.tlse1.twodgame.screens.MenuScreen;
+
 
 /**
  * Classe principale du jeu utilisant le système de screens de LibGDX.
@@ -12,7 +14,7 @@ public class TwoDGame extends Game {
     @Override
     public void create() {
         // Lancer l'écran de jeu principal
-        setScreen(new GameScreen(this));
+        setScreen(new MenuScreen(this));
     }
     
     @Override
