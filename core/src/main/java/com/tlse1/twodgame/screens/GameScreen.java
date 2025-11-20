@@ -13,7 +13,6 @@ import com.tlse1.twodgame.TwoDGame;
 import com.tlse1.twodgame.entities.Enemy;
 import com.tlse1.twodgame.entities.Inventory;
 import com.tlse1.twodgame.entities.Player;
-import com.tlse1.twodgame.entities.Projectile;
 import com.tlse1.twodgame.entities.Slime;
 import com.tlse1.twodgame.entities.Vampire;
 import java.util.ArrayList;
@@ -40,7 +39,6 @@ public class GameScreen implements Screen {
     private Player player;
     private Enemy enemy; // Ancien ennemi (vampire) - gardé pour compatibilité
     private ArrayList<Enemy> enemies; // Liste des ennemis (slimes, vampires, etc.)
-    private ArrayList<Projectile> projectiles; // Liste des projectiles (vampires)
     
     // Map
     private JsonMapLoader mapLoader;
@@ -130,9 +128,8 @@ public class GameScreen implements Screen {
         // Initialiser la liste des ennemis
         enemies = new ArrayList<>();
         
-        // Initialiser la liste des projectiles
-        projectiles = new ArrayList<>();
-        
+        // ENNEMIS DÉSACTIVÉS POUR TESTER LA MAP
+        /*
         // Spawn des slimes aux positions stratégiques
         // Slime niveau 1
         Slime slime1 = new Slime(64f, 448f, 1);
@@ -156,23 +153,21 @@ public class GameScreen implements Screen {
         // Vampire niveau 1
         Vampire vampire1 = new Vampire(192f, 320f, 1);
         vampire1.setTarget(player);
-        vampire1.setMapLoader(mapLoader); // Passer la référence à la map pour les projectiles
         enemies.add(vampire1);
         Gdx.app.log("GameScreen", "Vampire niveau 1 créé à (192, 320)");
         
         // Vampire niveau 2
         Vampire vampire2 = new Vampire(640f, 416f, 2);
         vampire2.setTarget(player);
-        vampire2.setMapLoader(mapLoader); // Passer la référence à la map pour les projectiles
         enemies.add(vampire2);
         Gdx.app.log("GameScreen", "Vampire niveau 2 créé à (640, 416)");
         
         // Vampire niveau 3
         Vampire vampire3 = new Vampire(672f, 192f, 3);
         vampire3.setTarget(player);
-        vampire3.setMapLoader(mapLoader); // Passer la référence à la map pour les projectiles
         enemies.add(vampire3);
         Gdx.app.log("GameScreen", "Vampire niveau 3 créé à (672, 192)");
+        */
         
         // Les collisions seront configurées après le premier rendu
         // quand on connaîtra les dimensions réelles des entités
@@ -214,6 +209,8 @@ public class GameScreen implements Screen {
         // Mettre à jour le joueur (même s'il est mort, pour l'animation de mort)
         player.update(delta);
         
+        // ENNEMIS DÉSACTIVÉS POUR TESTER LA MAP
+        /*
         // Mettre à jour les ennemis (même s'ils sont morts, pour l'animation de mort)
         if (enemies != null) {
             for (Enemy enemy : enemies) {
@@ -222,46 +219,17 @@ public class GameScreen implements Screen {
                     enemy.update(delta);
                     // Mettre à jour l'IA seulement si l'ennemi et le joueur sont vivants
                     if (enemy.isAlive() && player.isAlive()) {
-                        // Vérifier si l'ennemi attaque avant updateAI (pour détecter le début d'attaque)
-                        boolean wasAttacking = enemy.isAttacking();
                         enemy.updateAI(delta); // Activer l'IA de poursuite
-                        
-                        // Si l'ennemi vient de commencer à attaquer (n'attaquait pas avant, attaque maintenant)
-                        // et que c'est un vampire, créer un projectile
-                        if (enemy.isAttacking() && !wasAttacking && enemy instanceof Vampire) {
-                            Projectile projectile = enemy.createProjectileOnAttack();
-                            if (projectile != null) {
-                                projectiles.add(projectile);
-                                Gdx.app.log("GameScreen", String.format("Projectile créé par un vampire à (%.1f, %.1f)", 
-                                    projectile.getX(), projectile.getY()));
-                            }
-                        }
                     }
                 }
             }
         }
         
-        // Mettre à jour les projectiles
-        if (projectiles != null) {
-            for (int i = projectiles.size() - 1; i >= 0; i--) {
-                Projectile projectile = projectiles.get(i);
-                if (projectile != null && projectile.isActive()) {
-                    projectile.update(delta);
-                    
-                    // Vérifier la collision avec le joueur
-                    if (player != null && player.isAlive()) {
-                        projectile.checkPlayerCollision(player);
-                    }
-                    
-                    // Supprimer les projectiles inactifs
-                    if (!projectile.isActive()) {
-                        projectiles.remove(i);
-                    }
-                } else {
-                    projectiles.remove(i);
-                }
-            }
+        // Vérifier et résoudre les collisions entre entités (joueur et ennemis)
+        if (player.isAlive() && enemies != null) {
+            resolveEntityCollisions();
         }
+        */
         
         // Initialiser la caméra sur le joueur après le premier rendu (quand on connaît sa taille)
         if (!cameraInitialized && player.getWidth() > 0 && player.getHeight() > 0) {
@@ -275,8 +243,8 @@ public class GameScreen implements Screen {
             collisionsInitialized = true;
         }
         
-        // Gérer l'attaque du joueur sur l'ennemi
-        handlePlayerAttack();
+        // ENNEMIS DÉSACTIVÉS POUR TESTER LA MAP
+        // handlePlayerAttack();
         
         // Vérifier si l'ennemi est mort et ajouter des items à l'inventaire - DÉSACTIVÉ TEMPORAIREMENT
         // checkEnemyDeath();
@@ -316,6 +284,8 @@ public class GameScreen implements Screen {
         // Afficher le joueur même s'il est mort (pour voir l'animation de mort)
         player.render(batch);
         
+        // ENNEMIS DÉSACTIVÉS POUR TESTER LA MAP
+        /*
         // Afficher les ennemis
         if (enemies != null) {
             for (Enemy enemy : enemies) {
@@ -324,6 +294,7 @@ public class GameScreen implements Screen {
                 }
             }
         }
+        */
         
         // Afficher l'ennemi (vampire) - DÉSACTIVÉ TEMPORAIREMENT
         // if (enemy != null) {
@@ -338,24 +309,11 @@ public class GameScreen implements Screen {
         
         batch.end();
         
-        // Dessiner les projectiles (rectangles 1x1 pixels)
-        if (projectiles != null && shapeRenderer != null) {
-            shapeRenderer.setProjectionMatrix(camera.combined);
-            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-            shapeRenderer.setColor(1f, 0f, 0f, 1f); // Rouge pour les projectiles
-            
-            for (Projectile projectile : projectiles) {
-                if (projectile != null && projectile.isActive()) {
-                    shapeRenderer.rect(projectile.getX(), projectile.getY(), 
-                                      projectile.getWidth(), projectile.getHeight());
-                }
-            }
-            
-            shapeRenderer.end();
-        }
+        // Dessiner les hitboxes pour le débogage (rectangles rouges)
+        drawHitboxes();
         
-        // Dessiner les hitboxes pour le débogage (rectangles rouges) - DÉSACTIVÉ
-        // drawHitboxes();
+        // Dessiner les zones de collision de la map (rectangles rouges)
+        drawCollisionDebug();
         
         // Dessiner les barres de santé et shield (en coordonnées écran)
         if (player != null) {
@@ -412,6 +370,8 @@ public class GameScreen implements Screen {
             shapeRenderer.rect(playerHitboxX, playerHitboxY, playerHitboxWidth, playerHitboxHeight);
         }
         
+        // ENNEMIS DÉSACTIVÉS POUR TESTER LA MAP
+        /*
         // Dessiner les hitboxes des ennemis (17x16 pour slimes, 30x30 pour vampires, centrées)
         if (enemies != null) {
             for (Enemy enemy : enemies) {
@@ -426,6 +386,7 @@ public class GameScreen implements Screen {
                 }
             }
         }
+        */
         
         // Dessiner la range d'attaque du joueur en vert (25x10 pixels, collée à l'extrémité de la hitbox rouge)
         shapeRenderer.setColor(0f, 1f, 0f, 1f); // Vert
@@ -494,6 +455,59 @@ public class GameScreen implements Screen {
     }
     
     /**
+     * Dessine les zones de collision de la map avec des rectangles rouges pour le débogage.
+     */
+    private void drawCollisionDebug() {
+        if (shapeRenderer == null || mapLoader == null) {
+            return;
+        }
+        
+        // Récupérer le TiledMap depuis le mapLoader
+        com.badlogic.gdx.maps.tiled.TiledMap tiledMap = mapLoader.getTiledMap();
+        if (tiledMap == null) {
+            return;
+        }
+        
+        // Récupérer le layer "collisions"
+        com.badlogic.gdx.maps.tiled.TiledMapTileLayer collisionsLayer = 
+            (com.badlogic.gdx.maps.tiled.TiledMapTileLayer) tiledMap.getLayers().get("collisions");
+        
+        if (collisionsLayer == null) {
+            return;
+        }
+        
+        // Utiliser la projection de la caméra pour dessiner dans le monde du jeu
+        shapeRenderer.setProjectionMatrix(camera.combined);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        shapeRenderer.setColor(1f, 0f, 0f, 1f); // Rouge
+        
+        // Récupérer les dimensions des tiles
+        int tileWidth = mapLoader.getTileWidth();
+        int tileHeight = mapLoader.getTileHeight();
+        int mapWidth = mapLoader.getMapWidth();
+        int mapHeight = mapLoader.getMapHeight();
+        
+        // Parcourir toutes les tiles du layer "collisions"
+        for (int y = 0; y < mapHeight; y++) {
+            for (int x = 0; x < mapWidth; x++) {
+                com.badlogic.gdx.maps.tiled.TiledMapTileLayer.Cell cell = collisionsLayer.getCell(x, y);
+                
+                // Si la tile existe et n'est pas vide, c'est une zone de collision
+                if (cell != null && cell.getTile() != null) {
+                    // Calculer la position en pixels (coin bas-gauche de la tile)
+                    float pixelX = x * tileWidth;
+                    float pixelY = y * tileHeight;
+                    
+                    // Dessiner un rectangle rouge autour de la tile de collision
+                    shapeRenderer.rect(pixelX, pixelY, tileWidth, tileHeight);
+                }
+            }
+        }
+        
+        shapeRenderer.end();
+    }
+    
+    /**
      * Gère l'input clavier et met à jour la position et la direction du personnage.
      */
     private void handleInput(float deltaTime) {
@@ -521,7 +535,13 @@ public class GameScreen implements Screen {
         
         // Déplacer le joueur si une direction est pressée
         if (moveDirection != null) {
-            player.getMovementHandler().move(moveDirection, deltaTime, isRunning);
+            // Vérifier si le mouvement causerait une collision avec un ennemi
+            if (canPlayerMove(moveDirection, deltaTime, isRunning)) {
+                player.getMovementHandler().move(moveDirection, deltaTime, isRunning);
+            } else {
+                // Collision avec un ennemi, ne pas bouger
+                player.getMovementHandler().stop();
+            }
         } else {
             player.getMovementHandler().stop();
         }
@@ -745,6 +765,164 @@ public class GameScreen implements Screen {
         
         player.setX(x);
         player.setY(y);
+    }
+    
+    /**
+     * Vérifie si le joueur peut se déplacer dans une direction sans entrer en collision avec un ennemi.
+     * 
+     * @param direction Direction du mouvement
+     * @param deltaTime Temps écoulé
+     * @param isRunning Si le joueur court
+     * @return true si le mouvement est possible (pas de collision avec un ennemi)
+     */
+    private boolean canPlayerMove(Direction direction, float deltaTime, boolean isRunning) {
+        // ENNEMIS DÉSACTIVÉS POUR TESTER LA MAP - retourner true directement
+        if (player == null || !player.isAlive()) {
+            return true;
+        }
+        
+        // Vérification des collisions avec les ennemis désactivée
+        if (enemies == null) {
+            return true;
+        }
+        
+        // Calculer la nouvelle position du joueur
+        float playerSpeed = player.getMovementHandler().getSpeed();
+        float currentSpeed = isRunning ? playerSpeed * 1.5f : playerSpeed;
+        float moveDistance = currentSpeed * deltaTime;
+        
+        float currentX = player.getX();
+        float currentY = player.getY();
+        float newX = currentX;
+        float newY = currentY;
+        
+        switch (direction) {
+            case UP:
+                newY += moveDistance;
+                break;
+            case DOWN:
+                newY -= moveDistance;
+                break;
+            case SIDE:
+                newX += moveDistance;
+                break;
+            case SIDE_LEFT:
+                newX -= moveDistance;
+                break;
+        }
+        
+        // Calculer la hitbox du joueur à sa nouvelle position
+        float playerHitboxWidth = player.getHitboxWidth();
+        float playerHitboxHeight = player.getHitboxHeight();
+        float playerSpriteCenterX = newX + player.getWidth() / 2f;
+        float playerSpriteCenterY = newY + player.getHeight() / 2f;
+        float newPlayerHitboxX = playerSpriteCenterX - playerHitboxWidth / 2f;
+        float newPlayerHitboxY = playerSpriteCenterY - playerHitboxHeight / 2f;
+        
+        // ENNEMIS DÉSACTIVÉS POUR TESTER LA MAP
+        /*
+        // Vérifier les collisions avec chaque ennemi
+        for (Enemy enemy : enemies) {
+            if (enemy == null || !enemy.isAlive()) {
+                continue;
+            }
+            
+            // Hitbox de l'ennemi
+            float enemyHitboxX = enemy.getHitboxX();
+            float enemyHitboxY = enemy.getHitboxY();
+            float enemyHitboxWidth = enemy.getHitboxWidth();
+            float enemyHitboxHeight = enemy.getHitboxHeight();
+            
+            // Vérifier si les hitboxes se chevauchent (collision AABB)
+            boolean wouldCollide = (newPlayerHitboxX < enemyHitboxX + enemyHitboxWidth &&
+                                   newPlayerHitboxX + playerHitboxWidth > enemyHitboxX &&
+                                   newPlayerHitboxY < enemyHitboxY + enemyHitboxHeight &&
+                                   newPlayerHitboxY + playerHitboxHeight > enemyHitboxY);
+            
+            if (wouldCollide) {
+                // Collision détectée, le mouvement n'est pas possible
+                return false;
+            }
+        }
+        */
+        
+        return true; // Pas de collision, le mouvement est possible
+    }
+    
+    /**
+     * Résout les collisions entre le joueur et les ennemis pour empêcher le chevauchement.
+     * Si les hitboxes se chevauchent, remet le joueur à sa position précédente.
+     * Ne pousse PAS l'ennemi.
+     * ENNEMIS DÉSACTIVÉS POUR TESTER LA MAP
+     */
+    private void resolveEntityCollisions() {
+        // ENNEMIS DÉSACTIVÉS POUR TESTER LA MAP
+        return;
+        /*
+        if (player == null || enemies == null || !player.isAlive()) {
+            return;
+        }
+        
+        // Hitbox du joueur
+        float playerHitboxX = player.getHitboxX();
+        float playerHitboxY = player.getHitboxY();
+        float playerHitboxWidth = player.getHitboxWidth();
+        float playerHitboxHeight = player.getHitboxHeight();
+        
+        // Vérifier les collisions avec chaque ennemi
+        for (Enemy enemy : enemies) {
+            if (enemy == null || !enemy.isAlive()) {
+                continue;
+            }
+            
+            // Hitbox de l'ennemi
+            float enemyHitboxX = enemy.getHitboxX();
+            float enemyHitboxY = enemy.getHitboxY();
+            float enemyHitboxWidth = enemy.getHitboxWidth();
+            float enemyHitboxHeight = enemy.getHitboxHeight();
+            
+            // Vérifier si les hitboxes se chevauchent (collision AABB)
+            boolean colliding = (playerHitboxX < enemyHitboxX + enemyHitboxWidth &&
+                               playerHitboxX + playerHitboxWidth > enemyHitboxX &&
+                               playerHitboxY < enemyHitboxY + enemyHitboxHeight &&
+                               playerHitboxY + playerHitboxHeight > enemyHitboxY);
+            
+            if (colliding) {
+                // Calculer le chevauchement
+                float overlapX = Math.min(playerHitboxX + playerHitboxWidth - enemyHitboxX,
+                                         enemyHitboxX + enemyHitboxWidth - playerHitboxX);
+                float overlapY = Math.min(playerHitboxY + playerHitboxHeight - enemyHitboxY,
+                                         enemyHitboxY + enemyHitboxHeight - playerHitboxY);
+                
+                // Calculer les centres pour déterminer la direction de séparation
+                float playerCenterX = playerHitboxX + playerHitboxWidth / 2f;
+                float playerCenterY = playerHitboxY + playerHitboxHeight / 2f;
+                float enemyCenterX = enemyHitboxX + enemyHitboxWidth / 2f;
+                float enemyCenterY = enemyHitboxY + enemyHitboxHeight / 2f;
+                
+                // Séparer en reculant uniquement le joueur (ne pas pousser l'ennemi)
+                if (overlapX < overlapY) {
+                    // Séparation horizontale : reculer le joueur
+                    if (playerCenterX < enemyCenterX) {
+                        // Le joueur est à gauche, le reculer vers la gauche
+                        player.setX(player.getX() - overlapX);
+                    } else {
+                        // Le joueur est à droite, le reculer vers la droite
+                        player.setX(player.getX() + overlapX);
+                    }
+                } else {
+                    // Séparation verticale : reculer le joueur
+                    if (playerCenterY < enemyCenterY) {
+                        // Le joueur est en bas, le reculer vers le bas
+                        player.setY(player.getY() - overlapY);
+                    } else {
+                        // Le joueur est en haut, le reculer vers le haut
+                        player.setY(player.getY() + overlapY);
+                    }
+                }
+            }
+        }
+        */
     }
     
     /**

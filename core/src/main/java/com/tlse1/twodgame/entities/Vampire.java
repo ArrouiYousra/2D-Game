@@ -45,6 +45,9 @@ public class Vampire extends Enemy {
         // Configurer la portée d'attaque (les vampires attaquent à distance avec des projectiles)
         setAttackRange(300f); // 300 pixels de portée d'attaque
         
+        // Configurer la portée de détection (agro) : plus grande pour les vampires
+        setDetectionRange(400f); // 400 pixels (plus grand que les slimes)
+        
         // Configurer le cooldown d'attaque selon le niveau (vitesse de tir)
         // Niveau 1 : 1 projectile/seconde = cooldown de 1.0 seconde
         // Niveau 2 : 2 projectiles/seconde = cooldown de 0.5 seconde
@@ -66,9 +69,10 @@ public class Vampire extends Enemy {
         }
         setAttackCooldownTime(attackCooldownTime);
         
-        // Définir la hitbox fixe du vampire (30x30 pixels)
-        setHitboxWidth(14f);
-        setHitboxHeight(16f);
+        // Définir la hitbox fixe du vampire
+        // Même hitbox pour tous les ennemis (slimes et vampires)
+        setHitboxWidth(14f);  // 14 pixels de largeur
+        setHitboxHeight(16f); // 16 pixels de hauteur
         
         // Définir le scale pour que le vampire fasse 32x32 pixels (comme le joueur)
         // Les sprites sont découpés en 64x64 pixels
