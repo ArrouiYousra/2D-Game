@@ -27,6 +27,9 @@ public class GameScreen implements Screen {
     private RoomManager roomManager;
     private RoomTransition transition;
     private HUD hud;
+
+    private static final int WINDOWED_WIDTH = 1280;
+    private static final int WINDOWED_HEIGHT = 720;
     
     // Difficulté (par défaut MEDIUM, pourra être sélectionnée plus tard)
     private Difficulty difficulty = Difficulty.MEDIUM;
@@ -44,7 +47,7 @@ public class GameScreen implements Screen {
         
         // Initialiser la caméra
         camera = new OrthographicCamera();
-        camera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        camera.setToOrtho(false, 1280, 720);
         camera.update();
         
         // Créer le joueur
@@ -201,7 +204,7 @@ public class GameScreen implements Screen {
     @Override
     public void resize(int width, int height) {
         // Mettre à jour la caméra
-        camera.setToOrtho(false, width, height);
+        camera.setToOrtho(false, WINDOWED_WIDTH, WINDOWED_HEIGHT);
         camera.update();
         
         // Mettre à jour le HUD

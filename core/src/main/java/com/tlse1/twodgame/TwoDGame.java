@@ -4,7 +4,7 @@ import com.badlogic.gdx.Game;
 import com.tlse1.twodgame.screens.MenuScreen;
 import com.tlse1.twodgame.screens.PauseScreen;
 import com.tlse1.twodgame.screens.SettingsScreen;
-import com.tlse1.twodgame.screens.AnimatedSplashScreen;
+import com.tlse1.twodgame.screens.GameScreen;
 
 /**
  * Classe principale du jeu utilisant le système de screens de LibGDX.
