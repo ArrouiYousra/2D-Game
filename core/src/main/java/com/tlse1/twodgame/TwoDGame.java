@@ -5,6 +5,7 @@ import com.tlse1.twodgame.screens.MenuScreen;
 import com.tlse1.twodgame.screens.PauseScreen;
 import com.tlse1.twodgame.screens.SettingsScreen;
 import com.tlse1.twodgame.screens.GameScreen;
+import com.tlse1.twodgame.screens.GameSettingsScreen;
 
 /**
  * Classe principale du jeu utilisant le système de screens de LibGDX.
@@ -15,7 +16,7 @@ public class TwoDGame extends Game {
     @Override
     public void create() {
         // Démarrer avec le menu principal
-        setScreen(new SettingsScreen(this));
+        setScreen(new GameSettingsScreen(this));
     }
     
     @Override
