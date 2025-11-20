@@ -27,6 +27,9 @@ public class GameSettingsScreen implements Screen {
     private static final int WINDOWED_WIDTH = 1280;
     private static final int WINDOWED_HEIGHT = 720;
     
+    // Référence au GameScreen pour reprendre le jeu (peut être null si appelé depuis le menu)
+    private final GameScreen gameScreen;
+    
     // Core
     private final TwoDGame game;
     private final SpriteBatch batch;
@@ -82,8 +85,14 @@ public class GameSettingsScreen implements Screen {
     private float menuY;
     private float menuScale;
 
-    public GameSettingsScreen(TwoDGame game) {
+    /**
+     * Constructeur avec référence au GameScreen pour reprendre le jeu
+     * @param game Le jeu principal
+     * @param gameScreen Le GameScreen à reprendre (peut être null si appelé depuis le menu)
+     */
+    public GameSettingsScreen(TwoDGame game, GameScreen gameScreen) {
         this.game = game;
+        this.gameScreen = gameScreen;
 
         // Initialisation caméra
         screenWidth = Gdx.graphics.getWidth();
@@ -211,22 +220,11 @@ public class GameSettingsScreen implements Screen {
     private void drawUI() {
         UILayout layout = calculateUILayout();
         
-        // Panel de fond
         drawBackgroundPanel(layout);
-        
-        // Titre "Settings"
         drawTitle(layout);
-        
-        // Bouton de fermeture (croix)
         drawCloseButton(layout);
-        
-        // Contrôles de fenêtre (fullscreen/windowed)
         drawWindowControls(layout);
-        
-        // Section des commandes
         drawCommandsSection(layout);
-        
-        // Boutons d'action (Resume et Quit)
         drawActionButtons(layout);
     }
 
@@ -250,8 +248,6 @@ public class GameSettingsScreen implements Screen {
         layout.buttonHeight = buttonHeight;
         layout.buttonSpacing = buttonSpacing;
         layout.startY = startY;
-        
-        // Calcul des tailles
         layout.clickWidth = (clickTexture.getWidth() * menuScale) * 0.06f;
         layout.clickHeight = (clickTexture.getHeight() * menuScale) * 0.06f;
         layout.titleWidth = (settingsTitle.getWidth() * menuScale) * 0.4f;
@@ -305,7 +301,6 @@ public class GameSettingsScreen implements Screen {
         float iconWidth = layout.titleWidth * 0.6f;
         float iconHeight = layout.titleHeight * 0.6f;
 
-        // Dessiner les boutons click/non_click selon l'état
         if (isFullscreen) {
             batch.draw(clickTexture, fullscreenX, layout.startY, layout.clickWidth, layout.clickHeight);
             batch.draw(nonClickTexture, windowX, layout.startY, layout.clickWidth, layout.clickHeight);
@@ -318,7 +313,6 @@ public class GameSettingsScreen implements Screen {
             nonClickButtonBounds.set(fullscreenX, layout.startY, layout.clickWidth, layout.clickHeight);
         }
 
-        // Dessiner les icônes
         batch.draw(fullScreenTexture, fullscreenX, screenButtonY, iconWidth, iconHeight);
         batch.draw(windowTexture, windowX, screenButtonY, iconWidth, iconHeight);
 
@@ -333,10 +327,8 @@ public class GameSettingsScreen implements Screen {
         float commandY = layout.startY - (layout.buttonHeight + layout.buttonSpacing) * 2;
         float commandX = layout.buttonX - layout.drawHeight * 0.3f;
         
-        // Titre "Commande"
         batch.draw(commandeTexture, commandX, commandY, layout.buttonWidth, layout.buttonHeight);
 
-        // Touches de contrôle
         float keyBaseX = layout.buttonX + layout.drawHeight * 0.2f;
         float keyY = commandY;
         float keyOffsetX = layout.drawHeight * 0.1f;
@@ -369,11 +361,9 @@ public class GameSettingsScreen implements Screen {
         float resumeY = layout.startY - (layout.buttonHeight + layout.buttonSpacing) * 3;
         float quitY = resumeY - layout.buttonHeight - layout.buttonSpacing;
 
-        // Bouton Resume
         batch.draw(resumeTexture, layout.buttonX, resumeY, layout.buttonWidth, layout.buttonHeight);
         resumeButtonBounds.set(layout.buttonX, resumeY, layout.buttonWidth, layout.buttonHeight);
 
-        // Bouton Quit
         batch.draw(quitTexture, layout.buttonX, quitY, layout.buttonWidth, layout.buttonHeight);
         quitButtonBounds.set(layout.buttonX, quitY, layout.buttonWidth, layout.buttonHeight);
     }
@@ -389,8 +379,9 @@ public class GameSettingsScreen implements Screen {
             handleButtonClick(touchX, touchY);
         }
 
+        // ESC pour reprendre le jeu (pas retourner au menu)
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-            returnToMenu();
+            resumeGame();
         }
     }
 
@@ -405,7 +396,7 @@ public class GameSettingsScreen implements Screen {
             quitGame();
             
         } else if (crossButtonBounds.contains(x, y)) {
-            returnToMenu();
+            resumeGame(); // Reprendre au lieu de retourner au menu
             
         } else if (fullscreenButtonBounds.contains(x, y)) {
             toggleFullscreen(true);
@@ -419,13 +410,19 @@ public class GameSettingsScreen implements Screen {
     }
 
     /**
-     * Reprend le jeu
+     * Reprend le jeu où il était
      */
     private void resumeGame() {
-        Gdx.app.log("GameSettingsScreen", "Reprise du jeu");
+    Gdx.app.log("GameSettingsScreen", "Reprise du jeu");
+    if (gameScreen != null) {
+        gameScreen.resumeGame();
+        // Ne pas appeler setScreen, juste revenir
+        game.setScreen(gameScreen);
+    } else {
         game.setScreen(new GameScreen(game));
-        dispose();
     }
+    // Ne pas disposer pour garder les ressources
+}
 
     /**
      * Quitte le jeu
@@ -433,15 +430,6 @@ public class GameSettingsScreen implements Screen {
     private void quitGame() {
         Gdx.app.log("GameSettingsScreen", "Fermeture du jeu");
         Gdx.app.exit();
-    }
-
-    /**
-     * Retourne au menu principal
-     */
-    private void returnToMenu() {
-        Gdx.app.log("GameSettingsScreen", "Retour au menu");
-        game.setScreen(new MenuScreen(game));
-        dispose();
     }
 
     /**
@@ -489,7 +477,6 @@ public class GameSettingsScreen implements Screen {
             menuMapping.dispose();
         }
         
-        // Dispose de toutes les textures
         backgroundBlur.dispose();
         backgroundPanel.dispose();
         settingsTitle.dispose();
