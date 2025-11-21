@@ -5,262 +5,426 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.math.Rectangle;
 import com.tlse1.twodgame.TwoDGame;
 import com.tlse1.twodgame.screens.SettingsScreen;
 import com.tlse1.twodgame.utils.MenuMapping;
 
 /**
  * Écran de menu principal.
- * Affiche le menu avec sprite6 comme fond et les boutons depuis Main_menu.png.
+ * Affiche le logo, les options de menu et permet de naviguer vers différents écrans.
  */
 public class MenuScreen implements Screen {
-    
-    private TwoDGame game;
-    private SpriteBatch batch;
-    private OrthographicCamera camera;
-    private MenuMapping menuMapping;
-    
-    // TextureRegion pour le fond (sprite6)
-    private TextureRegion menuBackground;
-    
-    // TextureRegions pour les boutons
-    private TextureRegion resumeButton; // sprite7
-    private TextureRegion restartButton; // sprite11
-    private TextureRegion settingsButton; // sprite15
-    private TextureRegion quitButton; // sprite39
-    
-    // États des boutons (pour le survol)
-    private boolean isResumeButtonHovered = false;
-    private boolean isRestartButtonHovered = false;
-    private boolean isSettingsButtonHovered = false;
-    private boolean isQuitButtonHovered = false;
-    
-    // Dimensions de l'écran
+
+    // Constantes
+    private static final float BUTTON_START_Y_PERCENT = 0.7f;
+    private static final float BUTTON_SPACING_SCALE = 8f;
+    private static final float BACKGROUND_COLOR_R = 0.05f;
+    private static final float BACKGROUND_COLOR_G = 0.05f;
+    private static final float BACKGROUND_COLOR_B = 0.15f;
+
+    // Core
+    private final TwoDGame game;
+    private final SpriteBatch batch;
+    private final OrthographicCamera camera;
+    private final MenuMapping menuMapping;
+
+    // Textures - Background et logo
+    private final Texture backgroundBlur;
+    private final Texture abyssLogo;
+    private final Texture abyssZomb1;
+    private final Texture abyssChelou;
+    private final Texture abyssSos;
+    private final Texture abyssZomb;
+
+    // Textures - Boutons de menu
+    private final Texture levelsTexture;
+    private final Texture inventoryTexture;
+    private final Texture stuffTexture;
+    private final Texture shopTexture;
+    private final Texture playTexture;
+    private final Texture quitTexture;
+    private final Texture settingsIcon;
+
+    // Sprite regions (compatibilité)
+    private final TextureRegion menuBackground;
+    private final TextureRegion resumeButton;
+    private final TextureRegion restartButton;
+    private final TextureRegion settingsButton;
+    private final TextureRegion quitButton;
+
+    // Zones cliquables
+    private final Rectangle settingsIconBounds = new Rectangle();
+    private final Rectangle levelsButtonBounds = new Rectangle();
+    private final Rectangle inventoryButtonBounds = new Rectangle();
+    private final Rectangle stuffButtonBounds = new Rectangle();
+    private final Rectangle shopButtonBounds = new Rectangle();
+    private final Rectangle playButtonBounds = new Rectangle();
+    private final Rectangle quitButtonBounds = new Rectangle();
+
+    // Dimensions
     private float screenWidth;
     private float screenHeight;
-    
-    // Position et scale du menu
-    private float menuX, menuY, menuScale;
-    
+    private float menuX;
+    private float menuY;
+    private float menuScale;
+
     public MenuScreen(TwoDGame game) {
         this.game = game;
-        
-        // Initialiser la caméra avec les dimensions initiales
+
+        // Initialisation caméra
         screenWidth = Gdx.graphics.getWidth();
         screenHeight = Gdx.graphics.getHeight();
         camera = new OrthographicCamera(screenWidth, screenHeight);
         camera.setToOrtho(false, screenWidth, screenHeight);
         camera.update();
-        
-        // Initialiser le SpriteBatch
+
         batch = new SpriteBatch();
-        
-        // Charger le mapping des sprites depuis le JSON
         menuMapping = new MenuMapping();
-        
-        // Charger le fond (sprite6)
+
+        // Chargement des textures - Background et logo
+        backgroundBlur = new Texture("gui/PNG/font_flou.png");
+        abyssLogo = new Texture("gui/PNG/Abyss_logo.png");
+        abyssZomb1 = new Texture("gui/PNG/Abyss_zomb1.png");
+        abyssChelou = new Texture("gui/PNG/Abyss_chelou.png");
+        abyssSos = new Texture("gui/PNG/Abyss_sos.png");
+        abyssZomb = new Texture("gui/PNG/Abyss_zomb.png");
+
+        // Chargement des textures - Boutons
+        levelsTexture = new Texture("gui/PNG/Levels.png");
+        inventoryTexture = new Texture("gui/PNG/Inventory_button.png");
+        stuffTexture = new Texture("gui/PNG/Stuffs.png");
+        shopTexture = new Texture("gui/PNG/Shop.png");
+        playTexture = new Texture("gui/PNG/Play.png");
+        quitTexture = new Texture("gui/PNG/Quit_long.png");
+        settingsIcon = new Texture("gui/PNG/Param.png");
+
+        // Chargement des sprites depuis le mapping
         menuBackground = menuMapping.getSprite("sprite6");
-        
-        // Charger les boutons
         resumeButton = menuMapping.getSprite("sprite7");
         restartButton = menuMapping.getSprite("sprite11");
         settingsButton = menuMapping.getSprite("sprite15");
         quitButton = menuMapping.getSprite("sprite39");
-        
-        if (menuBackground == null || resumeButton == null || restartButton == null 
-            || settingsButton == null || quitButton == null) {
-            Gdx.app.error("MenuScreen", "Impossible de charger les sprites du menu");
-        } else {
-            Gdx.app.log("MenuScreen", "Sprites du menu chargés");
-        }
-        
-        // Initialiser les positions (sera calculé dans render)
+
+        validateAssets();
+
         menuX = 0;
         menuY = 0;
         menuScale = 1f;
     }
-    
+
+    /**
+     * Vérifie que tous les assets essentiels sont chargés
+     */
+    private void validateAssets() {
+        if (menuBackground == null || resumeButton == null) {
+            Gdx.app.error("MenuScreen", "Impossible de charger les sprites du menu");
+        } else {
+            Gdx.app.log("MenuScreen", "Sprites du menu chargés avec succès");
+        }
+    }
+
     @Override
     public void show() {
-        // Appelé quand l'écran devient visible
     }
-    
+
     @Override
     public void render(float delta) {
-        // Mettre à jour la caméra
-        camera.update();
-        
-        // Nettoyer l'écran
-        Gdx.gl.glClearColor(0.05f, 0.05f, 0.15f, 1); // fond bleu très foncé
-        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-        
-        // Définir les matrices de projection pour utiliser la caméra
+        updateCamera();
+        clearScreen();
+
         batch.setProjectionMatrix(camera.combined);
-        
-        // Dessiner les éléments
         batch.begin();
-        
+
         if (menuBackground != null) {
-            // Calculer le scale pour que le menu s'adapte à l'écran
-            float scaleX = screenWidth / menuBackground.getRegionWidth();
-            float scaleY = screenHeight / menuBackground.getRegionHeight();
-            menuScale = Math.min(scaleX, scaleY); // Garder les proportions
-            
-            float drawWidth = menuBackground.getRegionWidth() * menuScale;
-            float drawHeight = menuBackground.getRegionHeight() * menuScale;
-            menuX = (screenWidth - drawWidth) / 2f; // Centrer horizontalement
-            menuY = (screenHeight - drawHeight) / 2f; // Centrer verticalement
-            
-            // Dessiner le fond (sprite6)
-            batch.draw(menuBackground, menuX, menuY, drawWidth, drawHeight);
-            
-            // Dessiner les boutons
-            drawButtons(drawWidth, drawHeight);
+            calculateMenuDimensions();
+            drawBackground();
+            drawLogos();
+            drawMenuButtons();
         }
-        
+
         batch.end();
-        
-        // Gérer les interactions avec les boutons
+
         handleInput();
     }
-    
+
     /**
-     * Dessine les boutons du menu
+     * Met à jour la caméra
      */
-    private void drawButtons(float drawWidth, float drawHeight) {
-        if (resumeButton == null || restartButton == null || settingsButton == null || quitButton == null) {
-            return;
-        }
-        
-        // Calculer les dimensions des boutons avec le scale
-        float buttonWidth = resumeButton.getRegionWidth() * menuScale;
-        float buttonHeight = resumeButton.getRegionHeight() * menuScale;
-        
-        // Espacement entre les boutons (inspiré de sprite5)
-        float buttonSpacing = 8f * menuScale;
-        
-        // Position de départ pour les boutons (centré verticalement dans le menu)
-        // On place les boutons verticalement, en commençant par le haut
-        float startY = menuY + drawHeight * 0.7f; // Commencer à 70% de la hauteur du menu
-        
-        // Calculer la position X pour centrer les boutons
-        float buttonX = menuX + (drawWidth - buttonWidth) / 2f;
-        
-        // Dessiner les boutons verticalement
-        // Resume (sprite7) - en haut
-        float resumeY = startY;
-        batch.draw(resumeButton, buttonX, resumeY, buttonWidth, buttonHeight);
-        
-        // Restart (sprite11) - deuxième
-        float restartY = resumeY - (buttonHeight + buttonSpacing);
-        batch.draw(restartButton, buttonX, restartY, buttonWidth, buttonHeight);
-        
-        // Settings (sprite15) - troisième
-        float settingsY = restartY - (buttonHeight + buttonSpacing);
-        batch.draw(settingsButton, buttonX, settingsY, buttonWidth, buttonHeight);
-        
-        // Quit (sprite39) - en bas
-        float quitY = settingsY - (buttonHeight + buttonSpacing);
-        batch.draw(quitButton, buttonX, quitY, buttonWidth, buttonHeight);
+    private void updateCamera() {
+        camera.update();
     }
-    
+
     /**
-     * Gère les interactions avec les boutons (survol et clic)
+     * Nettoie l'écran avec la couleur de fond
      */
-    private void handleInput() {
-        // Convertir les coordonnées de l'écran vers les coordonnées de la caméra
-        float touchX = Gdx.input.getX();
-        float touchY = Gdx.graphics.getHeight() - Gdx.input.getY(); // Inverser Y car LibGDX utilise le bas comme origine
-        
-        // Calculer les positions des boutons (même logique que dans drawButtons)
-        if (menuBackground == null || resumeButton == null) {
+    private void clearScreen() {
+        Gdx.gl.glClearColor(BACKGROUND_COLOR_R, BACKGROUND_COLOR_G, BACKGROUND_COLOR_B, 1);
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+    }
+
+    /**
+     * Calcule les dimensions et la position du menu
+     */
+    private void calculateMenuDimensions() {
+        float scaleX = screenWidth / menuBackground.getRegionWidth();
+        float scaleY = screenHeight / menuBackground.getRegionHeight();
+        menuScale = Math.min(scaleX, scaleY);
+
+        float drawWidth = menuBackground.getRegionWidth() * menuScale;
+        float drawHeight = menuBackground.getRegionHeight() * menuScale;
+        menuX = (screenWidth - drawWidth) / 2f;
+        menuY = (screenHeight - drawHeight) / 2f;
+    }
+
+    /**
+     * Dessine le fond d'écran
+     */
+    private void drawBackground() {
+        batch.draw(backgroundBlur, 0, 0, screenWidth, screenHeight);
+    }
+
+    /**
+     * Dessine les logos Abyss
+     */
+    private void drawLogos() {
+        float logoWidth = 200;
+        float logoHeight = 50;
+        float drawWidth = menuBackground.getRegionWidth() * menuScale;
+        float drawHeight = menuBackground.getRegionHeight() * menuScale;
+
+        batch.draw(abyssZomb1, drawWidth * 0.56f, drawHeight * 0.8f, logoWidth * 2f, logoHeight * 2f);
+    }
+
+    /**
+     * Dessine tous les boutons du menu
+     */
+    private void drawMenuButtons() {
+        if (resumeButton == null) {
             return;
         }
-        
+
+        MenuLayout layout = calculateMenuLayout();
+
+        // Icône paramètres
+        drawSettingsIcon(layout);
+
+        // Boutons principaux
+        drawMainButtons(layout);
+
+        // Bouton Play (à droite du quit)
+        drawPlayButton(layout);
+    }
+
+    /**
+     * Calcule le layout du menu
+     */
+    private MenuLayout calculateMenuLayout() {
         float drawWidth = menuBackground.getRegionWidth() * menuScale;
         float drawHeight = menuBackground.getRegionHeight() * menuScale;
         float buttonWidth = resumeButton.getRegionWidth() * menuScale;
         float buttonHeight = resumeButton.getRegionHeight() * menuScale;
-        float buttonSpacing = 8f * menuScale;
-        float startY = menuY + drawHeight * 0.7f;
+        float buttonSpacing = BUTTON_SPACING_SCALE * menuScale;
+        float startY = menuY + drawHeight * BUTTON_START_Y_PERCENT;
         float buttonX = menuX + (drawWidth - buttonWidth) / 2f;
-        
-        float resumeY = startY;
-        float restartY = resumeY - (buttonHeight + buttonSpacing);
-        float settingsY = restartY - (buttonHeight + buttonSpacing);
-        float quitY = settingsY - (buttonHeight + buttonSpacing);
-        
-        // Vérifier le survol des boutons
-        boolean isMouseOverResume = (touchX >= buttonX && touchX <= buttonX + buttonWidth &&
-                                    touchY >= resumeY && touchY <= resumeY + buttonHeight);
-        
-        boolean isMouseOverRestart = (touchX >= buttonX && touchX <= buttonX + buttonWidth &&
-                                     touchY >= restartY && touchY <= restartY + buttonHeight);
-        
-        boolean isMouseOverSettings = (touchX >= buttonX && touchX <= buttonX + buttonWidth &&
-                                      touchY >= settingsY && touchY <= settingsY + buttonHeight);
-        
-        boolean isMouseOverQuit = (touchX >= buttonX && touchX <= buttonX + buttonWidth &&
-                                  touchY >= quitY && touchY <= quitY + buttonHeight);
-        
-        // Mettre à jour l'état des boutons (pour le survol - à implémenter plus tard avec des textures différentes)
-        isResumeButtonHovered = isMouseOverResume;
-        isRestartButtonHovered = isMouseOverRestart;
-        isSettingsButtonHovered = isMouseOverSettings;
-        isQuitButtonHovered = isMouseOverQuit;
-        
-        // Détecter les clics sur les boutons
+
+        MenuLayout layout = new MenuLayout();
+        layout.drawWidth = drawWidth;
+        layout.drawHeight = drawHeight;
+        layout.buttonX = buttonX;
+        layout.buttonWidth = buttonWidth;
+        layout.buttonHeight = buttonHeight;
+        layout.buttonSpacing = buttonSpacing;
+        layout.startY = startY;
+
+        return layout;
+    }
+
+    /**
+     * Dessine l'icône des paramètres
+     */
+    private void drawSettingsIcon(MenuLayout layout) {
+        float iconWidth = (settingsIcon.getWidth() * menuScale) * 0.02f;
+        float iconHeight = (settingsIcon.getHeight() * menuScale) * 0.02f;
+        float iconX = menuX + layout.drawWidth * 1.4f;
+        float iconY = menuY + layout.drawWidth * 1.7f;
+
+        batch.draw(settingsIcon, iconX, iconY, iconHeight, iconWidth);
+        settingsIconBounds.set(iconX, iconY, iconHeight, iconWidth);
+    }
+
+    /**
+     * Dessine les boutons principaux du menu
+     */
+    private void drawMainButtons(MenuLayout layout) {
+        float currentY = layout.startY;
+
+        // Levels
+        batch.draw(levelsTexture, layout.buttonX, currentY, layout.buttonWidth, layout.buttonHeight);
+        levelsButtonBounds.set(layout.buttonX, currentY, layout.buttonWidth, layout.buttonHeight);
+        currentY -= (layout.buttonHeight + layout.buttonSpacing);
+
+        // Inventory
+        batch.draw(inventoryTexture, layout.buttonX, currentY, layout.buttonWidth, layout.buttonHeight);
+        inventoryButtonBounds.set(layout.buttonX, currentY, layout.buttonWidth, layout.buttonHeight);
+        currentY -= (layout.buttonHeight + layout.buttonSpacing);
+
+        // Stuff
+        batch.draw(stuffTexture, layout.buttonX, currentY, layout.buttonWidth, layout.buttonHeight);
+        stuffButtonBounds.set(layout.buttonX, currentY, layout.buttonWidth, layout.buttonHeight);
+        currentY -= (layout.buttonHeight + layout.buttonSpacing);
+
+        // Shop
+        batch.draw(shopTexture, layout.buttonX, currentY, layout.buttonWidth, layout.buttonHeight);
+        shopButtonBounds.set(layout.buttonX, currentY, layout.buttonWidth, layout.buttonHeight);
+        currentY -= (layout.buttonHeight + layout.buttonSpacing);
+
+        // Quit
+        batch.draw(quitTexture, layout.buttonX, currentY, layout.buttonWidth, layout.buttonHeight);
+        quitButtonBounds.set(layout.buttonX, currentY, layout.buttonWidth, layout.buttonHeight);
+    }
+
+    /**
+     * Dessine le bouton Play
+     */
+    private void drawPlayButton(MenuLayout layout) {
+        float playX = layout.buttonX + layout.drawWidth * 0.8f;
+        float playY = layout.startY - (layout.buttonHeight + layout.buttonSpacing) * 4 - 5;
+        float playWidth = layout.buttonWidth / 2;
+        float playHeight = layout.buttonHeight + 10;
+
+        batch.draw(playTexture, playX, playY, playWidth, playHeight);
+        playButtonBounds.set(playX, playY, playWidth, playHeight);
+    }
+
+    /**
+     * Gère les interactions utilisateur
+     */
+    private void handleInput() {
+        float touchX = Gdx.input.getX();
+        float touchY = screenHeight - Gdx.input.getY();
+
         if (Gdx.input.justTouched()) {
-            if (isMouseOverResume) {
-                // TODO: Reprendre la partie (si une partie est en cours)
-                Gdx.app.log("MenuScreen", "Bouton Resume cliqué");
-            } else if (isMouseOverRestart) {
-                // Redémarrer la partie (TODO: créer GameScreen)
-                Gdx.app.log("MenuScreen", "Bouton Restart cliqué (GameScreen non disponible)");
-            } else if (isMouseOverSettings) {
-                // Aller aux paramètres
-                game.setScreen(new SettingsScreen(game));
-            } else if (isMouseOverQuit) {
-                // Quitter le jeu
-                Gdx.app.exit();
-            }
+            handleButtonClick(touchX, touchY);
         }
-        
-        // Détecter la touche ESC pour revenir au jeu (si le menu est un menu pause)
+
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-            // TODO: Reprendre la partie si c'est un menu pause
             Gdx.app.log("MenuScreen", "ESC pressé");
         }
     }
-    
+
+    /**
+     * Gère les clics sur les boutons
+     */
+    private void handleButtonClick(float x, float y) {
+        if (settingsIconBounds.contains(x, y)) {
+            navigateToSettings();
+
+        } else if (levelsButtonBounds.contains(x, y)) {
+            navigateToLevels();
+
+        } else if (inventoryButtonBounds.contains(x, y)) {
+            navigateToInventory();
+
+        } else if (stuffButtonBounds.contains(x, y)) {
+            navigateToStuff();
+
+        } else if (shopButtonBounds.contains(x, y)) {
+            navigateToShop();
+
+        } else if (playButtonBounds.contains(x, y)) {
+            startGame();
+
+        } else if (quitButtonBounds.contains(x, y)) {
+            quitGame();
+        }
+    }
+
+    /**
+     * Navigue vers les paramètres
+     */
+    private void navigateToSettings() {
+        Gdx.app.log("MenuScreen", "Navigation vers Settings");
+        game.setScreen(new SettingsScreen(game));
+        dispose();
+    }
+
+    /**
+     * Navigue vers l'écran des niveaux
+     */
+    private void navigateToLevels() {
+        Gdx.app.log("MenuScreen", "Navigation vers Levels");
+        game.setScreen(new DevScreen(game));
+        dispose();
+    }
+
+    /**
+     * Navigue vers l'inventaire
+     */
+    private void navigateToInventory() {
+        Gdx.app.log("MenuScreen", "Navigation vers Inventory");
+        game.setScreen(new DevScreen(game));
+        dispose();
+    }
+
+    /**
+     * Navigue vers l'équipement
+     */
+    private void navigateToStuff() {
+        Gdx.app.log("MenuScreen", "Navigation vers Stuff");
+        game.setScreen(new DevScreen(game));
+        dispose();
+    }
+
+    /**
+     * Navigue vers la boutique
+     */
+    private void navigateToShop() {
+        Gdx.app.log("MenuScreen", "Navigation vers Shop");
+        game.setScreen(new DevScreen(game));
+        dispose();
+    }
+
+    /**
+     * Démarre le jeu
+     */
+    private void startGame() {
+        Gdx.app.log("MenuScreen", "Démarrage du jeu");
+        game.setScreen(new GameScreen(game));
+        dispose();
+    }
+
+    /**
+     * Quitte le jeu
+     */
+    private void quitGame() {
+        Gdx.app.log("MenuScreen", "Fermeture du jeu");
+        Gdx.app.exit();
+    }
+
     @Override
     public void resize(int width, int height) {
-        // Mettre à jour les dimensions de l'écran
         screenWidth = width;
         screenHeight = height;
-        
-        // Mettre à jour la caméra avec les nouvelles dimensions
         camera.setToOrtho(false, screenWidth, screenHeight);
         camera.update();
     }
-    
+
     @Override
     public void pause() {
-        // Appelé quand le jeu est mis en pause
     }
-    
+
     @Override
     public void resume() {
-        // Appelé quand le jeu reprend
     }
-    
+
     @Override
     public void hide() {
-        // Appelé quand l'écran devient invisible
     }
-    
+
     @Override
     public void dispose() {
         if (batch != null) {
@@ -269,5 +433,33 @@ public class MenuScreen implements Screen {
         if (menuMapping != null) {
             menuMapping.dispose();
         }
+
+        // Dispose de toutes les textures
+        backgroundBlur.dispose();
+        abyssLogo.dispose();
+        abyssZomb1.dispose();
+        abyssChelou.dispose();
+        abyssSos.dispose();
+        abyssZomb.dispose();
+        levelsTexture.dispose();
+        inventoryTexture.dispose();
+        stuffTexture.dispose();
+        shopTexture.dispose();
+        playTexture.dispose();
+        quitTexture.dispose();
+        settingsIcon.dispose();
+    }
+
+    /**
+     * Classe interne pour stocker le layout du menu
+     */
+    private static class MenuLayout {
+        float drawWidth;
+        float drawHeight;
+        float buttonX;
+        float buttonWidth;
+        float buttonHeight;
+        float buttonSpacing;
+        float startY;
     }
 }
