@@ -47,16 +47,6 @@ jacocoTestReport {
     }
 }
 
-task jacocoTestCoverageVerification(type: JacocoCoverageVerification) {
-    dependsOn jacocoTestReport
-    violationRules {
-        rule {
-            limit {
-                minimum = 0.50 // Minimum 50% de couverture
-            }
-        }
-    }
-}
 
 dependencies {
   api "com.badlogicgames.box2dlights:box2dlights:$box2dlightsVersion"

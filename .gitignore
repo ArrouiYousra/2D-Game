@@ -18,6 +18,7 @@ gradle-app.setting
 *.class
 *.war
 *.ear
+hs_err_pid*.log
 hs_err_pid*
 .attach_pid*
 
@@ -86,9 +87,7 @@ www-test/
 .externalToolBuilders/
 *.launch
 
-
 ## NetBeans:
-
 /nbproject/private/
 /android/nbproject/private/
 /core/nbproject/private/
@@ -101,7 +100,6 @@ www-test/
 /headless/nbproject/private/
 /server/nbproject/private/
 /shared/nbproject/private/
-
 /nbbuild/
 /android/nbbuild/
 /core/nbbuild/
@@ -114,7 +112,6 @@ www-test/
 /headless/nbbuild/
 /server/nbbuild/
 /shared/nbbuild/
-
 /dist/
 /android/dist/
 /core/dist/
@@ -127,7 +124,6 @@ www-test/
 /headless/dist/
 /server/dist/
 /shared/dist/
-
 /nbdist/
 /android/nbdist/
 /core/nbdist/
@@ -140,7 +136,6 @@ www-test/
 /headless/nbdist/
 /server/nbdist/
 /shared/nbdist/
-
 nbactions.xml
 nb-configuration.xml
 
@@ -148,6 +143,9 @@ nb-configuration.xml
 .DS_Store
 Thumbs.db
 *Zone.Identifier
+**:Zone.Identifier
+*.jar:Zone.Identifier
+*.png:Zone.Identifier
 
 ## Miscellaneous:
 *~
@@ -155,6 +153,22 @@ Thumbs.db
 *#*#
 /.kotlin/
 /assets/assets.txt
+
+## Logs and error reports:
+*.log
+**/hs_err_pid*.log
+!gdx-liftoff-*.jar
+
+## JAR files (except gradle wrapper and gdx-liftoff):
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+!gdx-liftoff-*.jar
+
+## Build reports and documentation (generated):
+core/build/reports/
+core/build/test-results/
+core/build/docs/javadoc/
+core/build/jacoco/
 
 ## Special cases:
 
