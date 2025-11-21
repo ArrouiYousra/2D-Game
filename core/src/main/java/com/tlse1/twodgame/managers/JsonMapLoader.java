@@ -3,6 +3,7 @@ package com.tlse1.twodgame.managers;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.Batch;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.maps.tiled.TiledMap;
@@ -27,8 +28,6 @@ public class JsonMapLoader {
      * @param jsonPath Chemin vers le fichier JSON (relatif à assets/)
      */
     public JsonMapLoader(String jsonPath) {
-        Gdx.app.log("JsonMapLoader", "=== DEMARRAGE JsonMapLoader ===");
-        
         try {            
             // Vérification du JSON
             FileHandle jsonFile = Gdx.files.internal(jsonPath);
@@ -36,8 +35,6 @@ public class JsonMapLoader {
                 Gdx.app.error("JsonMapLoader", "ERREUR: " + jsonPath + " introuvable!");
                 return;
             }
-            
-            Gdx.app.log("JsonMapLoader", "Lecture du JSON...");
             JsonReader jsonReader = new JsonReader();
             JsonValue root = jsonReader.parse(jsonFile);
             
@@ -48,8 +45,6 @@ public class JsonMapLoader {
             tileHeight = tileset.getInt("tileHeight");
             int cols = tileset.getInt("columns");
             int rows = tileset.getInt("rows");
-            
-            Gdx.app.log("JsonMapLoader", "Tileset: " + tilesetPath + " (" + cols + "x" + rows + " tuiles de " + tileWidth + "x" + tileHeight + ")");
             
             // Chargement tileset
             FileHandle tilesetFile = Gdx.files.internal(tilesetPath);
@@ -67,8 +62,6 @@ public class JsonMapLoader {
             mapWidth = mapInfo.getInt("width");
             mapHeight = mapInfo.getInt("height");
             
-            Gdx.app.log("JsonMapLoader", "Carte: " + mapWidth + "x" + mapHeight);
-            
             // Création TiledMap
             tiledMap = new TiledMap();
             
@@ -76,7 +69,6 @@ public class JsonMapLoader {
             JsonValue layers = mapInfo.get("layers");
             for (JsonValue layerJson : layers) {
                 String layerName = layerJson.getString("name");
-                Gdx.app.log("JsonMapLoader", "Chargement layer: " + layerName);
                 
                 TiledMapTileLayer layer = new TiledMapTileLayer(mapWidth, mapHeight, tileWidth, tileHeight);
                 layer.setName(layerName); // Définir le nom du layer pour pouvoir le récupérer par nom
@@ -120,11 +112,9 @@ public class JsonMapLoader {
                 }
                 
                 tiledMap.getLayers().add(layer);
-                Gdx.app.log("JsonMapLoader", "Layer '" + layerName + "' chargé");
             }
             
             mapRenderer = new OrthogonalTiledMapRenderer(tiledMap);
-            Gdx.app.log("JsonMapLoader", "=== CARTE CHARGEE ===");
             
         } catch (Exception e) {
             Gdx.app.error("JsonMapLoader", "ERREUR FATALE:", e);
@@ -133,7 +123,7 @@ public class JsonMapLoader {
     }
     
     /**
-     * Rend la map.
+     * Rend la map (tous les layers).
      * 
      * @param camera La caméra pour le rendu
      */
@@ -142,6 +132,205 @@ public class JsonMapLoader {
             mapRenderer.setView(camera);
             mapRenderer.render();
         }
+    }
+    
+    /**
+     * Rend les layers qui doivent être affichés AVANT le joueur.
+     * Ordre : ground, shadow, relief
+     * 
+     * @param camera La caméra pour le rendu
+     */
+    public void renderBeforePlayer(OrthographicCamera camera) {
+        if (mapRenderer == null || camera == null || tiledMap == null) {
+            return;
+        }
+        
+        mapRenderer.setView(camera);
+        Batch batch = mapRenderer.getBatch();
+        batch.begin();
+        
+        // Calculer les bounds visibles de la caméra pour optimiser le rendu
+        float camLeft = camera.position.x - camera.viewportWidth / 2f;
+        float camRight = camera.position.x + camera.viewportWidth / 2f;
+        float camBottom = camera.position.y - camera.viewportHeight / 2f;
+        float camTop = camera.position.y + camera.viewportHeight / 2f;
+        
+        // Calculer les indices de tiles visibles (avec une marge pour éviter les coupures)
+        int startX = Math.max(0, (int)(camLeft / tileWidth) - 1);
+        int endX = Math.min(mapWidth - 1, (int)(camRight / tileWidth) + 1);
+        int startY = Math.max(0, (int)(camBottom / tileHeight) - 1);
+        int endY = Math.min(mapHeight - 1, (int)(camTop / tileHeight) + 1);
+        
+        // Rendre les layers dans l'ordre : ground, shadow, relief
+        // On parcourt tous les layers et on rend seulement ceux qui doivent être avant le joueur
+        for (int i = 0; i < tiledMap.getLayers().size(); i++) {
+            TiledMapTileLayer layer = (TiledMapTileLayer) tiledMap.getLayers().get(i);
+            if (layer == null) continue;
+            
+            String layerName = layer.getName();
+            
+            // Rendre seulement les layers qui doivent être avant le joueur
+            // (collisions n'est pas rendu, c'est juste pour la détection)
+            if ("ground".equals(layerName) || 
+                "shadow".equals(layerName) || 
+                "relief".equals(layerName)) {
+                // Rendre seulement les tiles visibles à l'écran
+                for (int y = startY; y <= endY; y++) {
+                    for (int x = startX; x <= endX; x++) {
+                        TiledMapTileLayer.Cell cell = layer.getCell(x, y);
+                        if (cell != null && cell.getTile() != null) {
+                            float tileX = x * tileWidth;
+                            float tileY = y * tileHeight;
+                            TextureRegion region = cell.getTile().getTextureRegion();
+                            if (region != null) {
+                                batch.draw(region, tileX, tileY, tileWidth, tileHeight);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        batch.end();
+    }
+    
+    /**
+     * Rend les layers qui doivent être affichés APRÈS le joueur.
+     * Ordre : structures, over_struct
+     * 
+     * @param camera La caméra pour le rendu
+     */
+    public void renderAfterPlayer(OrthographicCamera camera) {
+        if (mapRenderer == null || camera == null || tiledMap == null) {
+            return;
+        }
+        
+        mapRenderer.setView(camera);
+        Batch batch = mapRenderer.getBatch();
+        batch.begin();
+        
+        // Calculer les bounds visibles de la caméra pour optimiser le rendu
+        float camLeft = camera.position.x - camera.viewportWidth / 2f;
+        float camRight = camera.position.x + camera.viewportWidth / 2f;
+        float camBottom = camera.position.y - camera.viewportHeight / 2f;
+        float camTop = camera.position.y + camera.viewportHeight / 2f;
+        
+        // Calculer les indices de tiles visibles (avec une marge pour éviter les coupures)
+        int startX = Math.max(0, (int)(camLeft / tileWidth) - 1);
+        int endX = Math.min(mapWidth - 1, (int)(camRight / tileWidth) + 1);
+        int startY = Math.max(0, (int)(camBottom / tileHeight) - 1);
+        int endY = Math.min(mapHeight - 1, (int)(camTop / tileHeight) + 1);
+        
+        // Rendre les layers dans l'ordre : structures, over_struct
+        for (int i = 0; i < tiledMap.getLayers().size(); i++) {
+            TiledMapTileLayer layer = (TiledMapTileLayer) tiledMap.getLayers().get(i);
+            if (layer == null) continue;
+            
+            String layerName = layer.getName();
+            
+            // Rendre seulement les layers qui doivent être après le joueur
+            if ("structures".equals(layerName) || 
+                "over_struct".equals(layerName)) {
+                // Rendre seulement les tiles visibles à l'écran
+                for (int y = startY; y <= endY; y++) {
+                    for (int x = startX; x <= endX; x++) {
+                        TiledMapTileLayer.Cell cell = layer.getCell(x, y);
+                        if (cell != null && cell.getTile() != null) {
+                            float tileX = x * tileWidth;
+                            float tileY = y * tileHeight;
+                            TextureRegion region = cell.getTile().getTextureRegion();
+                            if (region != null) {
+                                batch.draw(region, tileX, tileY, tileWidth, tileHeight);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        batch.end();
+    }
+    
+    /**
+     * Vérifie si une position est dans une zone donnée.
+     * Les zones sont définies dans les layers "zone1", "zone2", etc.
+     * Une position est dans une zone si elle se trouve sur une tile non-nulle du layer correspondant.
+     * 
+     * @param x Position X en pixels (coin bas-gauche)
+     * @param y Position Y en pixels (coin bas-gauche)
+     * @param zoneId ID de la zone (1-6)
+     * @return true si la position est dans la zone
+     */
+    public boolean isInZone(float x, float y, int zoneId) {
+        if (tiledMap == null || zoneId < 1 || zoneId > 6) {
+            return false;
+        }
+        
+        // Convertir les coordonnées pixels en coordonnées tiles
+        int tileX = (int) (x / tileWidth);
+        int tileY = (int) (y / tileHeight);
+        
+        // Vérifier les limites
+        if (tileX < 0 || tileX >= mapWidth || tileY < 0 || tileY >= mapHeight) {
+            return false;
+        }
+        
+        // Récupérer le layer de la zone (zone1, zone2, etc.)
+        String zoneLayerName = "zone" + zoneId;
+        TiledMapTileLayer zoneLayer = (TiledMapTileLayer) tiledMap.getLayers().get(zoneLayerName);
+        
+        if (zoneLayer == null) {
+            return false;
+        }
+        
+        // Vérifier si la tile existe et n'est pas vide (non-nulle)
+        TiledMapTileLayer.Cell cell = zoneLayer.getCell(tileX, tileY);
+        return cell != null && cell.getTile() != null;
+    }
+    
+    /**
+     * Trouve le centre d'une zone en pixels.
+     * Parcourt toutes les tiles de la zone et calcule le centre.
+     * 
+     * @param zoneId ID de la zone (1-6)
+     * @return Tableau [x, y] en pixels, ou null si la zone est vide
+     */
+    public float[] getZoneCenter(int zoneId) {
+        if (tiledMap == null || zoneId < 1 || zoneId > 6) {
+            return null;
+        }
+        
+        String zoneLayerName = "zone" + zoneId;
+        TiledMapTileLayer zoneLayer = (TiledMapTileLayer) tiledMap.getLayers().get(zoneLayerName);
+        
+        if (zoneLayer == null) {
+            return null;
+        }
+        
+        float sumX = 0f;
+        float sumY = 0f;
+        int count = 0;
+        
+        // Parcourir toutes les tiles de la zone
+        for (int y = 0; y < mapHeight; y++) {
+            for (int x = 0; x < mapWidth; x++) {
+                TiledMapTileLayer.Cell cell = zoneLayer.getCell(x, y);
+                if (cell != null && cell.getTile() != null) {
+                    // Convertir en pixels (centre de la tile)
+                    float pixelX = (x + 0.5f) * tileWidth;
+                    float pixelY = (y + 0.5f) * tileHeight;
+                    sumX += pixelX;
+                    sumY += pixelY;
+                    count++;
+                }
+            }
+        }
+        
+        if (count == 0) {
+            return null;
+        }
+        
+        return new float[]{sumX / count, sumY / count};
     }
     
     /**

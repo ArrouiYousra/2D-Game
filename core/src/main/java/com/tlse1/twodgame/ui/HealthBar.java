@@ -22,7 +22,7 @@ public class HealthBar {
     
     private CharacterPanelMapping panelMapping;
     
-    // Texture du panel vide
+    // Texture du panel vide (fond permanent)
     private Texture panelVideTexture;
     private TextureRegion panelVideSprite;
     
@@ -70,7 +70,7 @@ public class HealthBar {
         this.maxHealth = 1;
         this.panelMapping = panelMapping;
         
-        // Charger la texture panel_vide.png
+        // Charger la texture panel_vide.png (fond permanent)
         panelVideTexture = new Texture(Gdx.files.internal("gui/PNG/panel_vide.png"));
         panelVideTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
         panelVideSprite = new TextureRegion(panelVideTexture);
@@ -103,6 +103,7 @@ public class HealthBar {
         this.maxHealth = Math.max(1, maxHealth);
     }
     
+    
     /**
      * Dessine la barre de santé.
      * 
@@ -116,17 +117,13 @@ public class HealthBar {
         // Calculer le ratio de santé
         float healthRatio = (float) currentHealth / (float) maxHealth;
         
-        // 1. Dessiner le panel vide (panel_vide.png)
+        // 1. Dessiner le panel vide (panel_vide.png) - fond permanent
         if (panelVideSprite != null) {
             batch.draw(panelVideSprite, x, y, panelWidth * scale, panelHeight * scale);
         }
         
-        // 2. Dessiner la barre rouge vide (sprite3)
-        if (emptyBarSprite != null) {
-            float barX = x + barOffsetX * scale;
-            float barY = y + barOffsetY * scale; // Position en bas du panel
-            batch.draw(emptyBarSprite, barX, barY, barWidth * scale, barHeight * scale);
-        }
+        // 2. Ne pas dessiner la barre rouge vide (sprite3) car elle a un fond coloré
+        // qui cache le panel_vide.png. Seuls les traits de remplissage seront dessinés.
         
         // 3. Dessiner les traits rouges pour remplir la barre
         if (healthRatio > 0 && fillSprite5 != null && fillSprite6 != null && fillSprite7 != null) {

@@ -145,8 +145,6 @@ public class AnimationHandler {
                 Animation<TextureRegion> fallback = animations.get(dir);
                 if (fallback != null) {
                     newAnimation = fallback;
-                    Gdx.app.log("AnimationHandler", String.format("Animation non trouvée pour direction %s, utilisation de %s comme fallback", 
-                        currentDirection, dir));
                     break;
                 }
             }

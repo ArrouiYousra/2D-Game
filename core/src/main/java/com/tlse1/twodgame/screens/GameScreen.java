@@ -5,11 +5,12 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.viewport.StretchViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.tlse1.twodgame.TwoDGame;
+import com.tlse1.twodgame.entities.Collectible;
 import com.tlse1.twodgame.entities.Enemy;
 import com.tlse1.twodgame.entities.Inventory;
 import com.tlse1.twodgame.entities.Player;
@@ -23,86 +24,98 @@ import com.tlse1.twodgame.ui.ShieldBar;
 import com.tlse1.twodgame.utils.ActionPanelMapping;
 import com.tlse1.twodgame.utils.CharacterPanelMapping;
 import com.tlse1.twodgame.utils.Direction;
-import com.tlse1.twodgame.screens.GameSettingsScreen;
 
 /**
  * Écran de jeu principal.
  * Affiche le personnage au centre de l'écran.
  */
 public class GameScreen implements Screen {
-
-    private float savedCameraX = -1f;
-    private float savedCameraY = -1f;
-    private float savedCameraZ = 0f;
-
-    private boolean isInitialized = false;
-
+    
     private TwoDGame game;
     private SpriteBatch batch;
-    private ShapeRenderer shapeRenderer;
     private OrthographicCamera camera;
     private OrthographicCamera uiCamera;
     private Viewport viewport;
     private Player player;
-
-    /*
-     * private RoomManager roomManager;
-     * private RoomTransition transition;
-     * private HUD hud;
-     */
-
-    private static final int WINDOWED_WIDTH = 1280;
-    private static final int WINDOWED_HEIGHT = 720;
-
     private Enemy enemy; // Ancien ennemi (vampire) - gardé pour compatibilité
     private ArrayList<Enemy> enemies; // Liste des ennemis (slimes, vampires, etc.)
+    private ArrayList<Collectible> collectibles; // Liste des collectibles droppés
+    
+    // Liste des respawns de slimes en attente (avec délai de 10 secondes)
+    private ArrayList<PendingSlimeRespawn> pendingSlimeRespawns;
     
     // Map
     private JsonMapLoader mapLoader;
-
+    
     // Character panel
     private CharacterPanelMapping characterPanelMapping;
-
+    
     // Action panel
     private ActionPanelMapping actionPanelMapping;
-
+    
     // Health bar
     private HealthBar healthBar;
-
+    
     // Shield bar
     private ShieldBar shieldBar;
-
+    
+    // Font pour afficher les compteurs
+    private BitmapFont font;
+    
     // Portée d'attaque du joueur
     private float playerAttackRange = 100f;
-
+    
     // Cooldown d'attaque du joueur
     private float playerAttackCooldown = 0f;
     private float playerAttackCooldownTime = 0.5f;
-
+    
     // Flag pour savoir si on a déjà loggé la mort du joueur
     private boolean playerDeathLogged = false;
-
+    
     // Flag pour savoir si on a déjà donné les items de l'ennemi mort
     private boolean enemyDeathLooted = false;
-
+    
     // Flag pour savoir si les collisions ont été initialisées
     private boolean collisionsInitialized = false;
-
+    
     // Flag pour savoir si la caméra a été initialisée
     private boolean cameraInitialized = false;
-
+    
     // Position précédente du joueur pour détecter les changements
     private float lastPlayerX = -1f;
     private float lastPlayerY = -1f;
-
+    
+    // Compteur de temps de jeu (en secondes) pour gérer les respawns
+    private float gameTime = 0f;
+    
+    /**
+     * Classe interne pour stocker les informations d'un respawn de slime en attente.
+     */
+    private static class PendingSlimeRespawn {
+        float deathTime;
+        int zoneId;
+        int level;
+        float initialX;
+        float initialY;
+        int respawnCount;
+        
+        PendingSlimeRespawn(float deathTime, int zoneId, int level, float initialX, float initialY, int respawnCount) {
+            this.deathTime = deathTime;
+            this.zoneId = zoneId;
+            this.level = level;
+            this.initialX = initialX;
+            this.initialY = initialY;
+            this.respawnCount = respawnCount;
+        }
+    }
+    
     public GameScreen(TwoDGame game) {
         this.game = game;
     }
-
+    
     @Override
     public void show() {
         batch = new SpriteBatch();
-        shapeRenderer = new ShapeRenderer();
         
         // Initialiser la caméra et le viewport
         // Définir la zone de la map à afficher (180x140 pixels)
@@ -120,8 +133,6 @@ public class GameScreen implements Screen {
         uiCamera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         uiCamera.update();
         
-        Gdx.app.log("GameScreen", String.format("Caméra configurée: vue de %.0fx%.0f pixels de la map (étirée pour remplir l'écran)", 
-            mapViewWidth, mapViewHeight));
         
         // Charger la map
         mapLoader = new JsonMapLoader("map/map.json");
@@ -144,47 +155,90 @@ public class GameScreen implements Screen {
         
         // Initialiser la liste des ennemis
         enemies = new ArrayList<>();
+        pendingSlimeRespawns = new ArrayList<>();
         
-        // ENNEMIS DÉSACTIVÉS POUR TESTER LA MAP
-        /*
-        // Spawn des slimes aux positions stratégiques
-        // Slime niveau 1
-        Slime slime1 = new Slime(64f, 448f, 1);
-        slime1.setTarget(player);
-        enemies.add(slime1);
-        Gdx.app.log("GameScreen", "Slime niveau 1 créé à (64, 448)");
+        // Initialiser la liste des collectibles
+        collectibles = new ArrayList<>();
         
-        // Slime niveau 2
-        Slime slime2 = new Slime(160f, 192f, 2);
-        slime2.setTarget(player);
-        enemies.add(slime2);
-        Gdx.app.log("GameScreen", "Slime niveau 2 créé à (160, 192)");
+        // Spawn des slimes aux positions stratégiques avec zones assignées
+        // Calcul automatique du centre de chaque zone
+        // Slime niveau 1 - Zone 1
+        float[] zone1Center = mapLoader.getZoneCenter(1);
+        if (zone1Center != null) {
+            Slime slime1 = new Slime(zone1Center[0], zone1Center[1], 1);
+            slime1.setTarget(player);
+            slime1.setMapLoader(mapLoader);
+            slime1.setZoneId(1);
+            slime1.setInitialPosition(zone1Center[0], zone1Center[1]);
+            enemies.add(slime1);
+        } else {
+            Gdx.app.error("GameScreen", "Zone 1 vide ou introuvable !");
+        }
         
-        // Slime niveau 3
-        Slime slime3 = new Slime(64f, 352f, 3);
-        slime3.setTarget(player);
-        enemies.add(slime3);
-        Gdx.app.log("GameScreen", "Slime niveau 3 créé à (64, 352)");
+        // Slime niveau 2 - Zone 2
+        float[] zone2Center = mapLoader.getZoneCenter(2);
+        if (zone2Center != null) {
+            Slime slime2 = new Slime(zone2Center[0], zone2Center[1], 2);
+            slime2.setTarget(player);
+            slime2.setMapLoader(mapLoader);
+            slime2.setZoneId(2);
+            slime2.setInitialPosition(zone2Center[0], zone2Center[1]);
+            enemies.add(slime2);
+        } else {
+            Gdx.app.error("GameScreen", "Zone 2 vide ou introuvable !");
+        }
         
-        // Spawn des vampires aux positions stratégiques
-        // Vampire niveau 1
-        Vampire vampire1 = new Vampire(192f, 320f, 1);
-        vampire1.setTarget(player);
-        enemies.add(vampire1);
-        Gdx.app.log("GameScreen", "Vampire niveau 1 créé à (192, 320)");
+        // Slime niveau 3 - Zone 3
+        float[] zone3Center = mapLoader.getZoneCenter(3);
+        if (zone3Center != null) {
+            Slime slime3 = new Slime(zone3Center[0], zone3Center[1], 3);
+            slime3.setTarget(player);
+            slime3.setMapLoader(mapLoader);
+            slime3.setZoneId(3);
+            slime3.setInitialPosition(zone3Center[0], zone3Center[1]);
+            enemies.add(slime3);
+        } else {
+            Gdx.app.error("GameScreen", "Zone 3 vide ou introuvable !");
+        }
         
-        // Vampire niveau 2
-        Vampire vampire2 = new Vampire(640f, 416f, 2);
-        vampire2.setTarget(player);
-        enemies.add(vampire2);
-        Gdx.app.log("GameScreen", "Vampire niveau 2 créé à (640, 416)");
+        // Vampire niveau 1 - Zone 4
+        float[] zone4Center = mapLoader.getZoneCenter(4);
+        if (zone4Center != null) {
+            Vampire vampire1 = new Vampire(zone4Center[0], zone4Center[1], 1);
+            vampire1.setTarget(player);
+            vampire1.setMapLoader(mapLoader);
+            vampire1.setZoneId(4);
+            vampire1.setInitialPosition(zone4Center[0], zone4Center[1]);
+            enemies.add(vampire1);
+        } else {
+            Gdx.app.error("GameScreen", "Zone 4 vide ou introuvable !");
+        }
         
-        // Vampire niveau 3
-        Vampire vampire3 = new Vampire(672f, 192f, 3);
-        vampire3.setTarget(player);
-        enemies.add(vampire3);
-        Gdx.app.log("GameScreen", "Vampire niveau 3 créé à (672, 192)");
-        */
+        // Vampire niveau 2 - Zone 5
+        float[] zone5Center = mapLoader.getZoneCenter(5);
+        if (zone5Center != null) {
+            Vampire vampire2 = new Vampire(zone5Center[0], zone5Center[1], 2);
+            vampire2.setTarget(player);
+            vampire2.setMapLoader(mapLoader);
+            vampire2.setZoneId(5);
+            vampire2.setInitialPosition(zone5Center[0], zone5Center[1]);
+            enemies.add(vampire2);
+        } else {
+            Gdx.app.error("GameScreen", "Zone 5 vide ou introuvable !");
+        }
+        
+        // Vampire niveau 3 - Zone 6
+        float[] zone6Center = mapLoader.getZoneCenter(6);
+        if (zone6Center != null) {
+            Vampire vampire3 = new Vampire(zone6Center[0], zone6Center[1], 3);
+            vampire3.setTarget(player);
+            vampire3.setMapLoader(mapLoader);
+            vampire3.setZoneId(6);
+            vampire3.setInitialPosition(zone6Center[0], zone6Center[1]);
+            enemies.add(vampire3);
+        } else {
+            Gdx.app.error("GameScreen", "Zone 6 vide ou introuvable !");
+        }
         
         // Les collisions seront configurées après le premier rendu
         // quand on connaîtra les dimensions réelles des entités
@@ -204,97 +258,17 @@ public class GameScreen implements Screen {
         
         // Initialiser la barre de shield (même position et scale que healthBar)
         shieldBar = new ShieldBar(healthBarX, healthBarY, healthBarScale, characterPanelMapping);
+        
+        // Initialiser la font pour les compteurs
+        font = new BitmapFont();
+        font.getData().setScale(1.5f); // Agrandir un peu la police
     }
     
-    Gdx.app.log("GameScreen", "Initialisation de GameScreen");
-    
-    batch = new SpriteBatch();
-    shapeRenderer = new ShapeRenderer();
-    
-    // Initialiser la caméra et le viewport
-    float mapViewWidth = 180f;
-    float mapViewHeight = 140f;
-    
-    camera = new OrthographicCamera();
-    viewport = new StretchViewport(mapViewWidth, mapViewHeight, camera);
-    viewport.apply();
-    camera.update();
-    
-    // Initialiser la caméra UI
-    uiCamera = new OrthographicCamera();
-    uiCamera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-    uiCamera.update();
-    
-    Gdx.app.log("GameScreen", String.format("Caméra configurée: vue de %.0fx%.0f pixels de la map (étirée pour remplir l'écran)", 
-        mapViewWidth, mapViewHeight));
-    
-    // Charger la map
-    mapLoader = new JsonMapLoader("map/map.json");
-    
-    // Créer le joueur
-    player = new Player(0, 0);
-    float playerStartX = 32f;
-    float playerStartY = 50f;
-    player.setX(playerStartX);
-    player.setY(playerStartY);
-    
-    // Initialiser les listes
-    enemies = new ArrayList<>();
-    projectiles = new ArrayList<>();
-    
-    // Spawn des slimes
-    Slime slime1 = new Slime(64f, 448f, 1);
-    slime1.setTarget(player);
-    enemies.add(slime1);
-    Gdx.app.log("GameScreen", "Slime niveau 1 créé à (64, 448)");
-    
-    Slime slime2 = new Slime(160f, 192f, 2);
-    slime2.setTarget(player);
-    enemies.add(slime2);
-    Gdx.app.log("GameScreen", "Slime niveau 2 créé à (160, 192)");
-    
-    Slime slime3 = new Slime(64f, 352f, 3);
-    slime3.setTarget(player);
-    enemies.add(slime3);
-    Gdx.app.log("GameScreen", "Slime niveau 3 créé à (64, 352)");
-    
-    // Spawn des vampires
-    Vampire vampire1 = new Vampire(192f, 320f, 1);
-    vampire1.setTarget(player);
-    vampire1.setMapLoader(mapLoader);
-    enemies.add(vampire1);
-    Gdx.app.log("GameScreen", "Vampire niveau 1 créé à (192, 320)");
-    
-    Vampire vampire2 = new Vampire(640f, 416f, 2);
-    vampire2.setTarget(player);
-    vampire2.setMapLoader(mapLoader);
-    enemies.add(vampire2);
-    Gdx.app.log("GameScreen", "Vampire niveau 2 créé à (640, 416)");
-    
-    Vampire vampire3 = new Vampire(672f, 192f, 3);
-    vampire3.setTarget(player);
-    vampire3.setMapLoader(mapLoader);
-    enemies.add(vampire3);
-    Gdx.app.log("GameScreen", "Vampire niveau 3 créé à (672, 192)");
-    
-    // Charger les panels
-    characterPanelMapping = new CharacterPanelMapping();
-    actionPanelMapping = new ActionPanelMapping();
-    
-    // Initialiser les barres de santé et shield
-    float healthBarScale = 4f;
-    float healthBarX = 10f;
-    float healthBarY = Gdx.graphics.getHeight() - (30f * healthBarScale) - 10f;
-    healthBar = new HealthBar(healthBarX, healthBarY, healthBarScale, characterPanelMapping);
-    shieldBar = new ShieldBar(healthBarX, healthBarY, healthBarScale, characterPanelMapping);
-    
-    // IMPORTANT : Mettre isInitialized à true À LA FIN, après que tout soit initialisé
-    isInitialized = true;
-    Gdx.app.log("GameScreen", "Initialisation terminée avec succès");
-}
-
     @Override
     public void render(float delta) {
+        // Mettre à jour le temps de jeu
+        gameTime += delta;
+        
         // Gérer l'input et le mouvement
         handleInput(delta);
         
@@ -305,7 +279,6 @@ public class GameScreen implements Screen {
         
         // Vérifier si le joueur est mort (ne logger qu'une seule fois)
         if (!player.isAlive() && !playerDeathLogged) {
-            Gdx.app.log("GameScreen", "Le joueur est mort !");
             playerDeathLogged = true;
             // Ici on pourrait afficher un écran de game over ou redémarrer
         }
@@ -313,8 +286,6 @@ public class GameScreen implements Screen {
         // Mettre à jour le joueur (même s'il est mort, pour l'animation de mort)
         player.update(delta);
         
-        // ENNEMIS DÉSACTIVÉS POUR TESTER LA MAP
-        /*
         // Mettre à jour les ennemis (même s'ils sont morts, pour l'animation de mort)
         if (enemies != null) {
             for (Enemy enemy : enemies) {
@@ -333,7 +304,6 @@ public class GameScreen implements Screen {
         if (player.isAlive() && enemies != null) {
             resolveEntityCollisions();
         }
-        */
         
         // Initialiser la caméra sur le joueur après le premier rendu (quand on connaît sa taille)
         if (!cameraInitialized && player.getWidth() > 0 && player.getHeight() > 0) {
@@ -347,11 +317,19 @@ public class GameScreen implements Screen {
             collisionsInitialized = true;
         }
         
-        // ENNEMIS DÉSACTIVÉS POUR TESTER LA MAP
-        // handlePlayerAttack();
+        handlePlayerAttack();
         
         // Vérifier si l'ennemi est mort et ajouter des items à l'inventaire - DÉSACTIVÉ TEMPORAIREMENT
         // checkEnemyDeath();
+        
+        // Vérifier si des ennemis sont morts et drop des collectibles
+        checkEnemyDeathsAndDropCollectibles();
+        
+        // Vérifier et traiter les respawns de slimes en attente (délai de 10 secondes)
+        processPendingSlimeRespawns(delta);
+        
+        // Nettoyer les collectibles collectés
+        cleanupCollectedCollectibles();
         
         // Mettre à jour l'IA de l'ennemi seulement si le joueur est vivant et l'ennemi est vivant - DÉSACTIVÉ TEMPORAIREMENT
         // if (enemy != null && player.isAlive() && enemy.isAlive()) {
@@ -376,9 +354,10 @@ public class GameScreen implements Screen {
         viewport.update((int)Gdx.graphics.getWidth(), (int)Gdx.graphics.getHeight());
         camera.update();
         
-        // Rendre la map en premier (en arrière-plan) - OrthogonalTiledMapRenderer gère son propre batch
+        // Rendre les layers de la map AVANT le joueur (ground, shadow, relief)
+        // OrthogonalTiledMapRenderer gère son propre batch
         if (mapLoader != null) {
-            mapLoader.render(camera);
+            mapLoader.renderBeforePlayer(camera);
         }
         
         // Dessiner le joueur et l'ennemi
@@ -388,9 +367,7 @@ public class GameScreen implements Screen {
         // Afficher le joueur même s'il est mort (pour voir l'animation de mort)
         player.render(batch);
         
-        // ENNEMIS DÉSACTIVÉS POUR TESTER LA MAP
-        /*
-        // Afficher les ennemis
+        // Afficher les ennemis (même niveau de rendu que le joueur)
         if (enemies != null) {
             for (Enemy enemy : enemies) {
                 if (enemy != null) {
@@ -398,27 +375,40 @@ public class GameScreen implements Screen {
                 }
             }
         }
-        */
         
         // Afficher l'ennemi (vampire) - DÉSACTIVÉ TEMPORAIREMENT
         // if (enemy != null) {
         //     enemy.render(batch);
         // }
         
-        // Dessiner le character panel
-        renderCharacterPanel();
+        // Afficher les collectibles (dans le monde du jeu, avec la caméra du jeu)
+        if (collectibles != null) {
+            for (Collectible collectible : collectibles) {
+                if (collectible != null && !collectible.isCollected()) {
+                    collectible.render(batch);
+                }
+            }
+        }
         
-        // Action panel désactivé
-        // renderActionPanel();
+        // Le character panel n'est plus rendu ici car panel_vide.png sert de fond pour les barres
+        // renderCharacterPanel();
         
         batch.end();
         
+        // Rendre les layers de la map APRÈS le joueur (structures, over_struct)
+        // OrthogonalTiledMapRenderer gère son propre batch
+        if (mapLoader != null) {
+            mapLoader.renderAfterPlayer(camera);
+        }
+        
+        // Dessiner l'inventaire (action panel) APRÈS tous les layers de la map
+        // Utiliser la caméra UI pour qu'il soit toujours visible
+        batch.setProjectionMatrix(uiCamera.combined);
+        batch.begin();
+        renderActionPanel();
+        batch.end();
+        
         // Dessiner les hitboxes pour le débogage (rectangles rouges)
-        drawHitboxes();
-        
-        // Dessiner les zones de collision de la map (rectangles rouges)
-        drawCollisionDebug();
-        
         // Dessiner les barres de santé et shield (en coordonnées écran)
         if (player != null) {
             float screenHeight = Gdx.graphics.getHeight();
@@ -446,464 +436,112 @@ public class GameScreen implements Screen {
             }
             batch.end();
         }
-
-        Gdx.app.log("GameScreen", String.format("Fenêtre redimensionnée : %dx%d", width, height));
     }
-
+    
     /**
      * Dessine les hitboxes du joueur et des ennemis pour le débogage.
      */
-    private void drawHitboxes() {
-        if (shapeRenderer == null) {
-            return;
-        }
-
-        // Utiliser la projection de la caméra pour dessiner dans le monde du jeu
-        shapeRenderer.setProjectionMatrix(camera.combined);
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-
-        // Dessiner les hitboxes de collision en rouge
-        shapeRenderer.setColor(1f, 0f, 0f, 1f); // Rouge
-
-        // Dessiner la hitbox du joueur (20x27, centrée)
-        if (player != null && player.getWidth() > 0 && player.getHeight() > 0) {
-            float playerHitboxX = player.getHitboxX();
-            float playerHitboxY = player.getHitboxY();
-            float playerHitboxWidth = player.getHitboxWidth();
-            float playerHitboxHeight = player.getHitboxHeight();
-
-            // Dessiner un rectangle rouge pour la hitbox de collision
-            shapeRenderer.rect(playerHitboxX, playerHitboxY, playerHitboxWidth, playerHitboxHeight);
-        }
-        
-        // ENNEMIS DÉSACTIVÉS POUR TESTER LA MAP
-        /*
-        // Dessiner les hitboxes des ennemis (17x16 pour slimes, 30x30 pour vampires, centrées)
-        if (enemies != null) {
-            for (Enemy enemy : enemies) {
-                if (enemy != null && enemy.getWidth() > 0 && enemy.getHeight() > 0) {
-                    float enemyHitboxX = enemy.getHitboxX();
-                    float enemyHitboxY = enemy.getHitboxY();
-                    float enemyHitboxWidth = enemy.getHitboxWidth();
-                    float enemyHitboxHeight = enemy.getHitboxHeight();
-
-                    // Dessiner un rectangle rouge pour la hitbox de collision
-                    shapeRenderer.rect(enemyHitboxX, enemyHitboxY, enemyHitboxWidth, enemyHitboxHeight);
-                }
-            }
-        }
-        */
-        
-        // Dessiner la range d'attaque du joueur en vert (25x10 pixels, collée à l'extrémité de la hitbox rouge)
-        shapeRenderer.setColor(0f, 1f, 0f, 1f); // Vert
-
-        if (player != null && player.isAttacking()) {
-            Direction attackDirection = player.getCurrentDirection();
-
-            // Utiliser la hitbox de collision du joueur (rouge) pour positionner la range
-            float playerHitboxX = player.getHitboxX();
-            float playerHitboxY = player.getHitboxY();
-            float playerHitboxWidth = player.getHitboxWidth();
-            float playerHitboxHeight = player.getHitboxHeight();
-            float playerHitboxCenterX = playerHitboxX + playerHitboxWidth / 2f;
-            float playerHitboxCenterY = playerHitboxY + playerHitboxHeight / 2f;
-
-            // Range d'attaque : 25x10 pixels
-            float attackRangeWidth = 25f;
-            float attackRangeHeight = 10f;
-
-            float attackRangeX, attackRangeY;
-            float finalWidth, finalHeight;
-
-            // Positionner la range collée à l'extrémité de la hitbox selon la direction
-            switch (attackDirection) {
-                case DOWN:
-                    // Range en bas de la hitbox (25x10, horizontale)
-                    attackRangeX = playerHitboxCenterX - attackRangeWidth / 2f;
-                    attackRangeY = playerHitboxY - attackRangeHeight; // Collée en bas
-                    finalWidth = attackRangeWidth;
-                    finalHeight = attackRangeHeight;
-                    break;
-                case UP:
-                    // Range en haut de la hitbox (25x10, horizontale)
-                    attackRangeX = playerHitboxCenterX - attackRangeWidth / 2f;
-                    attackRangeY = playerHitboxY + playerHitboxHeight; // Collée en haut
-                    finalWidth = attackRangeWidth;
-                    finalHeight = attackRangeHeight;
-                    break;
-                case SIDE_LEFT:
-                    // Range à gauche de la hitbox (10x25, verticale)
-                    attackRangeX = playerHitboxX - attackRangeHeight; // Collée à gauche
-                    attackRangeY = playerHitboxCenterY - attackRangeWidth / 2f;
-                    finalWidth = attackRangeHeight; // 10
-                    finalHeight = attackRangeWidth; // 25
-                    break;
-                case SIDE:
-                    // Range à droite de la hitbox (10x25, verticale)
-                    attackRangeX = playerHitboxX + playerHitboxWidth; // Collée à droite
-                    attackRangeY = playerHitboxCenterY - attackRangeWidth / 2f;
-                    finalWidth = attackRangeHeight; // 10
-                    finalHeight = attackRangeWidth; // 25
-                    break;
-                default:
-                    attackRangeX = playerHitboxCenterX - attackRangeWidth / 2f;
-                    attackRangeY = playerHitboxCenterY - attackRangeHeight / 2f;
-                    finalWidth = attackRangeWidth;
-                    finalHeight = attackRangeHeight;
-                    break;
-            }
-
-            // Dessiner un rectangle vert pour la range d'attaque
-            shapeRenderer.rect(attackRangeX, attackRangeY, finalWidth, finalHeight);
-        }
-
-        shapeRenderer.end();
-    }
-
-    /**
-     * Gère l'input clavier et met à jour la position et la direction du personnage.
-     */
-    /**
-     * Gère l'input clavier et met à jour la position et la direction du personnage.
-     */
-
-    @Override
-    public void render(float delta) {
-        // Protéger contre les appels avant l'initialisation complète
-        if (!isInitialized || player == null) {
-            Gdx.gl.glClearColor(0.2f, 0.2f, 0.2f, 1);
-            Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-            return;
-        }
-
-        // Gérer l'input
-        handleInput(delta);
-
-        // Si le jeu est en pause, ne pas mettre à jour la logique
-        if (!isPaused) {
-            // Mettre à jour le cooldown d'attaque du joueur
-            if (playerAttackCooldown > 0) {
-                playerAttackCooldown -= delta;
-            }
-
-            // Vérifier si le joueur est mort
-            if (!player.isAlive() && !playerDeathLogged) {
-                Gdx.app.log("GameScreen", "Le joueur est mort !");
-                playerDeathLogged = true;
-            }
-
-            // Mettre à jour le joueur
-            player.update(delta);
-
-            // Mettre à jour les ennemis
-            if (enemies != null) {
-                for (Enemy enemy : enemies) {
-                    if (enemy != null) {
-                        enemy.update(delta);
-                        if (enemy.isAlive() && player.isAlive()) {
-                            boolean wasAttacking = enemy.isAttacking();
-                            enemy.updateAI(delta);
-
-                            if (enemy.isAttacking() && !wasAttacking && enemy instanceof Vampire) {
-                                Projectile projectile = enemy.createProjectileOnAttack();
-                                if (projectile != null) {
-                                    projectiles.add(projectile);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Mettre à jour les projectiles
-            if (projectiles != null) {
-                for (int i = projectiles.size() - 1; i >= 0; i--) {
-                    Projectile projectile = projectiles.get(i);
-                    if (projectile != null && projectile.isActive()) {
-                        projectile.update(delta);
-
-                        if (player != null && player.isAlive()) {
-                            projectile.checkPlayerCollision(player);
-                        }
-
-                        if (!projectile.isActive()) {
-                            projectiles.remove(i);
-                        }
-                    } else {
-                        projectiles.remove(i);
-                    }
-                }
-            }
-
-            // Initialiser la caméra
-            if (!cameraInitialized && player.getWidth() > 0 && player.getHeight() > 0) {
-                updateCamera();
-                cameraInitialized = true;
-            }
-
-            // Initialiser les collisions
-            if (!collisionsInitialized && mapLoader != null && player.getWidth() > 0 && player.getHeight() > 0) {
-                initializeCollisions();
-                collisionsInitialized = true;
-            }
-
-            // Gérer l'attaque du joueur
-            handlePlayerAttack();
-
-            // Limiter le joueur dans la map
-            clampToMapBounds();
-
-            // Faire suivre la caméra
-            updateCamera();
-        }
-
-        // Toujours dessiner (même en pause)
-        Gdx.gl.glClearColor(0.2f, 0.2f, 0.2f, 1);
-        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-
-        // Mettre à jour la caméra et le viewport
-        if (viewport != null) {
-            viewport.update((int) Gdx.graphics.getWidth(), (int) Gdx.graphics.getHeight());
-        }
-        if (camera != null) {
-            camera.update();
-        }
-
-        // Rendre la map
-        if (mapLoader != null && camera != null) {
-            mapLoader.render(camera);
-        }
-
-        // Dessiner le joueur et les ennemis
-        if (batch != null && camera != null) {
-            batch.setProjectionMatrix(camera.combined);
-            batch.begin();
-
-            player.render(batch);
-
-            if (enemies != null) {
-                for (Enemy enemy : enemies) {
-                    if (enemy != null) {
-                        enemy.render(batch);
-                    }
-                }
-            }
-
-            renderCharacterPanel();
-
-            batch.end();
-        }
-
-        // Dessiner les projectiles
-        if (projectiles != null && shapeRenderer != null && camera != null) {
-            shapeRenderer.setProjectionMatrix(camera.combined);
-            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-            shapeRenderer.setColor(1f, 0f, 0f, 1f);
-
-            for (Projectile projectile : projectiles) {
-                if (projectile != null && projectile.isActive()) {
-                    shapeRenderer.rect(projectile.getX(), projectile.getY(),
-                            projectile.getWidth(), projectile.getHeight());
-                }
-            }
-
-            shapeRenderer.end();
-        }
-
-        // Dessiner les barres de santé et shield
-        if (player != null && batch != null && uiCamera != null && healthBar != null && shieldBar != null) {
-            float screenHeight = Gdx.graphics.getHeight();
-
-            healthBar.update(player.getHealth(), player.getMaxHealth());
-            healthBar.setPosition(10f, screenHeight - healthBar.getHeight() - 10f);
-
-            shieldBar.update(player.getShield(), player.getMaxShield());
-            shieldBar.setPosition(10f, screenHeight - shieldBar.getHeight() - 10f);
-
-            batch.setProjectionMatrix(uiCamera.combined);
-            batch.begin();
-            healthBar.render(batch);
-            shieldBar.render(batch);
-            batch.end();
-        }
-    }
-
-    /**
-     * Dessine les zones de collision de la map avec des rectangles rouges pour le débogage.
-     */
-    private void drawCollisionDebug() {
-        if (shapeRenderer == null || mapLoader == null) {
-            return;
-        }
-        
-        // Récupérer le TiledMap depuis le mapLoader
-        com.badlogic.gdx.maps.tiled.TiledMap tiledMap = mapLoader.getTiledMap();
-        if (tiledMap == null) {
-            return;
-        }
-        
-        // Récupérer le layer "collisions"
-        com.badlogic.gdx.maps.tiled.TiledMapTileLayer collisionsLayer = 
-            (com.badlogic.gdx.maps.tiled.TiledMapTileLayer) tiledMap.getLayers().get("collisions");
-        
-        if (collisionsLayer == null) {
-            return;
-        }
-        
-        // Utiliser la projection de la caméra pour dessiner dans le monde du jeu
-        shapeRenderer.setProjectionMatrix(camera.combined);
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-        shapeRenderer.setColor(1f, 0f, 0f, 1f); // Rouge
-        
-        // Récupérer les dimensions des tiles
-        int tileWidth = mapLoader.getTileWidth();
-        int tileHeight = mapLoader.getTileHeight();
-        int mapWidth = mapLoader.getMapWidth();
-        int mapHeight = mapLoader.getMapHeight();
-        
-        // Parcourir toutes les tiles du layer "collisions"
-        for (int y = 0; y < mapHeight; y++) {
-            for (int x = 0; x < mapWidth; x++) {
-                com.badlogic.gdx.maps.tiled.TiledMapTileLayer.Cell cell = collisionsLayer.getCell(x, y);
-                
-                // Si la tile existe et n'est pas vide, c'est une zone de collision
-                if (cell != null && cell.getTile() != null) {
-                    // Calculer la position en pixels (coin bas-gauche de la tile)
-                    float pixelX = x * tileWidth;
-                    float pixelY = y * tileHeight;
-                    
-                    // Dessiner un rectangle rouge autour de la tile de collision
-                    shapeRenderer.rect(pixelX, pixelY, tileWidth, tileHeight);
-                }
-            }
-        }
-        
-        shapeRenderer.end();
-    }
-    
     /**
      * Gère l'input clavier et met à jour la position et la direction du personnage.
      */
     private void handleInput(float deltaTime) {
-        // Protéger contre les appels avant l'initialisation
-        if (player == null) {
-            return;
-        }
-
-        // Gérer la touche ESC pour ouvrir les paramètres
-        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-            openGameSettings();
-            return;
-        }
-
-        // Si le jeu est en pause, ne pas gérer les autres inputs
-        if (isPaused) {
-            return;
-        }
-
         // Si le joueur est mort, ne pas gérer l'input
         if (!player.isAlive()) {
             player.getMovementHandler().stop();
             return;
         }
-
+        
         Direction moveDirection = null;
-
+        
         // Vérifier si Shift est pressé pour courir
-        boolean isRunning = Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
-                || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
-
-        // Gérer les touches directionnelles
-        if (Gdx.input.isKeyPressed(Input.Keys.UP) || Gdx.input.isKeyPressed(Input.Keys.W)
-                || Gdx.input.isKeyPressed(Input.Keys.Z)) {
+        boolean isRunning = Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT) || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
+        
+        // Gérer les touches directionnelles : Z/W/Flèche haut, S/Flèche bas, Q/A/Flèche gauche, D/Flèche droite
+        if (Gdx.input.isKeyPressed(Input.Keys.UP) || Gdx.input.isKeyPressed(Input.Keys.W) || Gdx.input.isKeyPressed(Input.Keys.Z)) {
             moveDirection = Direction.UP;
         } else if (Gdx.input.isKeyPressed(Input.Keys.DOWN) || Gdx.input.isKeyPressed(Input.Keys.S)) {
             moveDirection = Direction.DOWN;
-        } else if (Gdx.input.isKeyPressed(Input.Keys.LEFT) || Gdx.input.isKeyPressed(Input.Keys.A)
-                || Gdx.input.isKeyPressed(Input.Keys.Q)) {
+        } else if (Gdx.input.isKeyPressed(Input.Keys.LEFT) || Gdx.input.isKeyPressed(Input.Keys.A) || Gdx.input.isKeyPressed(Input.Keys.Q)) {
             moveDirection = Direction.SIDE_LEFT;
         } else if (Gdx.input.isKeyPressed(Input.Keys.RIGHT) || Gdx.input.isKeyPressed(Input.Keys.D)) {
             moveDirection = Direction.SIDE;
         }
-
-        // Déplacer le joueur
+        
+        // Déplacer le joueur si une direction est pressée
         if (moveDirection != null) {
             // Vérifier si le mouvement causerait une collision avec un ennemi
             if (canPlayerMove(moveDirection, deltaTime, isRunning)) {
+                // Pas de collision avec un ennemi, bouger normalement
                 player.getMovementHandler().move(moveDirection, deltaTime, isRunning);
             } else {
-                // Collision avec un ennemi, ne pas bouger
-                player.getMovementHandler().stop();
+                // Collision avec un ennemi, mais on appelle quand même move() pour permettre le changement de direction
+                // Le MovementHandler gérera le fait que le mouvement est bloqué
+                player.getMovementHandler().move(moveDirection, deltaTime, isRunning);
             }
         } else {
             player.getMovementHandler().stop();
         }
-
-        // Gérer l'attaque
+        
+        // Gérer l'attaque (touche E)
         if (Gdx.input.isKeyJustPressed(Input.Keys.E)) {
             player.attack();
         }
-
-        // Gérer l'utilisation des items
+        
+        // Touche T pour ramasser les collectibles proches
+        if (Gdx.input.isKeyJustPressed(Input.Keys.T)) {
+            pickupCollectibles();
+        }
+        
+        // Touches pour consommer les collectibles
+        // Touche 1 pour damage boost
         if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1) || Gdx.input.isKeyJustPressed(Input.Keys.NUMPAD_1)) {
-            player.useHealItem();
+            // Vérifier que Shift n'est pas pressé pour éviter les conflits
+            if (!Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT) && !Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT)) {
+                player.useDamageBoost();
+            }
         }
-
+        
+        // é (e accentué) pour speed boost - Sur AZERTY, c'est la touche 2
+        // Note: On utilise NUM_2 mais il faut faire attention aux conflits
+        // Alternative: utiliser une autre touche comme V ou E
         if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2) || Gdx.input.isKeyJustPressed(Input.Keys.NUMPAD_2)) {
-            player.useShieldItem();
+            // Vérifier que Shift n'est pas pressé pour éviter le conflit avec @
+            if (!Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT) && !Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT)) {
+                player.useSpeedBoost();
+            }
+        }
+        
+        // " (guillemets) pour shield potion - Sur AZERTY, c'est Shift+3 ou la touche 3
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3) || Gdx.input.isKeyJustPressed(Input.Keys.NUMPAD_3)) {
+            // Vérifier que Shift n'est pas pressé pour éviter le conflit avec #
+            if (!Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT) && !Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT)) {
+                player.useShieldPotion();
+            }
+        }
+        
+        // ' (apostrophe) pour heal potion - Sur AZERTY, c'est la touche 4
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4) || Gdx.input.isKeyJustPressed(Input.Keys.NUMPAD_4)) {
+            player.useHealPotion();
         }
     }
-
-    /**
-     * Ouvre l'écran des paramètres du jeu
-     */
-    // Ajouter cette variable au début de la classe GameScreen
-    private boolean isPaused = false;
-
-    // Remplacer la méthode openGameSettings()
-    /**
-     * Ouvre l'écran des paramètres du jeu et met le jeu en pause
-     */
-    private void openGameSettings() {
-        isPaused = true;
-        Gdx.app.log("GameScreen", "Jeu mis en pause - Ouverture des paramètres");
-        game.setScreen(new GameSettingsScreen(game, this));
-    }
-
-    /**
-     * Reprend le jeu (appelé par GameSettingsScreen)
-     */
-    public void resumeGame() {
-        isPaused = false;
-        Gdx.app.log("GameScreen", "Reprise du jeu");
-    }
-
-    /**
-     * Vérifie si le jeu est en pause
-     */
-    public boolean isPaused() {
-        return isPaused;
-    }
-
+    
     /**
      * Gère l'attaque du joueur sur les ennemis.
-     * Utilise les hitboxes d'attaque dynamiques du joueur pour détecter les
-     * collisions.
+     * Utilise les hitboxes d'attaque dynamiques du joueur pour détecter les collisions.
      */
     private void handlePlayerAttack() {
         if (!player.isAlive() || enemies == null || enemies.isEmpty()) {
             return;
         }
-
+        
         // Vérifier si le joueur est en train d'attaquer
         if (!player.isAttacking() || playerAttackCooldown > 0) {
             return;
         }
-
-        // Range d'attaque du joueur : 25x10 pixels, collée à l'extrémité de la hitbox
-        // de collision
+        
+        // Range d'attaque du joueur : 25x10 pixels, collée à l'extrémité de la hitbox de collision
         Direction attackDirection = player.getCurrentDirection();
-
+        
         // Utiliser la hitbox de collision du joueur (rouge) pour positionner la range
         float playerHitboxX = player.getHitboxX();
         float playerHitboxY = player.getHitboxY();
@@ -911,14 +549,14 @@ public class GameScreen implements Screen {
         float playerHitboxHeight = player.getHitboxHeight();
         float playerHitboxCenterX = playerHitboxX + playerHitboxWidth / 2f;
         float playerHitboxCenterY = playerHitboxY + playerHitboxHeight / 2f;
-
+        
         // Dimensions de la range d'attaque
         float attackRangeWidth = 25f;
         float attackRangeHeight = 10f;
-
+        
         float playerAttackX, playerAttackY;
         float playerAttackWidth, playerAttackHeight;
-
+        
         // Positionner la range collée à l'extrémité de la hitbox selon la direction
         switch (attackDirection) {
             case DOWN:
@@ -956,41 +594,43 @@ public class GameScreen implements Screen {
                 playerAttackHeight = attackRangeHeight;
                 break;
         }
-
+        
         // Vérifier les collisions avec tous les ennemis
         for (Enemy enemy : enemies) {
             if (enemy == null || !enemy.isAlive()) {
                 continue;
             }
-
+            
             // Position du centre du sprite de l'ennemi
             float enemyCenterX = enemy.getX() + enemy.getWidth() / 2f;
             float enemyCenterY = enemy.getY() + enemy.getHeight() / 2f;
-
+            
             // Utiliser la hitbox fixe de l'ennemi (17x16 pour slimes, 30x30 pour vampires)
             float enemyHitboxWidth = enemy.getHitboxWidth();
             float enemyHitboxHeight = enemy.getHitboxHeight();
-
+            
             // Position de la hitbox de l'ennemi (centrée sur le sprite)
             float enemyHitboxX = enemyCenterX - enemyHitboxWidth / 2f;
             float enemyHitboxY = enemyCenterY - enemyHitboxHeight / 2f;
-
+            
             // Vérifier si les rectangles se chevauchent (collision AABB)
             boolean hitboxesCollide = (playerAttackX < enemyHitboxX + enemyHitboxWidth &&
-                    playerAttackX + playerAttackWidth > enemyHitboxX &&
-                    playerAttackY < enemyHitboxY + enemyHitboxHeight &&
-                    playerAttackY + playerAttackHeight > enemyHitboxY);
-
+                                       playerAttackX + playerAttackWidth > enemyHitboxX &&
+                                       playerAttackY < enemyHitboxY + enemyHitboxHeight &&
+                                       playerAttackY + playerAttackHeight > enemyHitboxY);
+            
             // Si les hitboxes se touchent, infliger des dégâts à l'ennemi
             if (hitboxesCollide) {
-                enemy.takeDamage(10); // 10 dégâts par attaque
+                int baseDamage = 10;
+                int totalDamage = baseDamage + player.getDamageBoost();
+                enemy.takeDamage(totalDamage);
                 playerAttackCooldown = playerAttackCooldownTime;
                 // Ne pas infliger de dégâts à plusieurs ennemis en une seule frame
                 break;
             }
         }
     }
-
+    
     /**
      * Vérifie si l'ennemi est mort et ajoute des items à l'inventaire.
      */
@@ -1000,23 +640,21 @@ public class GameScreen implements Screen {
             enemyDeathLooted = false;
             return;
         }
-
+        
         // Si l'ennemi est mort et qu'on n'a pas encore donné les items
         if (!enemyDeathLooted) {
             // L'ennemi est mort, ajouter des items à l'inventaire
-            // Ajouter aléatoirement des items (shield ou heal)
+            // Ajouter aléatoirement des items (shield potion ou heal potion)
             if (Math.random() < 0.5) {
-                player.getInventory().addItem(Inventory.ItemType.HEAL);
-                Gdx.app.log("GameScreen", "Item HEAL ajouté à l'inventaire !");
+                player.getInventory().addItem(Inventory.ItemType.HEAL_POTION);
             } else {
-                player.getInventory().addItem(Inventory.ItemType.SHIELD);
-                Gdx.app.log("GameScreen", "Item SHIELD ajouté à l'inventaire !");
+                player.getInventory().addItem(Inventory.ItemType.SHIELD_POTION);
             }
-
+            
             enemyDeathLooted = true;
         }
     }
-
+    
     /**
      * Fait suivre la caméra au joueur.
      * La caméra ne bouge que si la position du joueur a réellement changé.
@@ -1025,23 +663,22 @@ public class GameScreen implements Screen {
         if (player == null) {
             return;
         }
-
+        
         // Récupérer la position actuelle du joueur
         float currentPlayerX = player.getX();
         float currentPlayerY = player.getY();
-
-        // Vérifier si la position a changé (avec une tolérance pour éviter les
-        // micro-mouvements)
+        
+        // Vérifier si la position a changé (avec une tolérance pour éviter les micro-mouvements)
         float tolerance = 0.5f;
-        boolean positionChanged = Math.abs(currentPlayerX - lastPlayerX) > tolerance ||
-                Math.abs(currentPlayerY - lastPlayerY) > tolerance;
-
+        boolean positionChanged = Math.abs(currentPlayerX - lastPlayerX) > tolerance || 
+                                   Math.abs(currentPlayerY - lastPlayerY) > tolerance;
+        
         // Mettre à jour la caméra seulement si la position a changé
         if (positionChanged || lastPlayerX < 0 || lastPlayerY < 0) {
             // Centrer la caméra sur le joueur
             float playerCenterX = currentPlayerX + player.getWidth() / 2f;
             float playerCenterY = currentPlayerY + player.getHeight() / 2f;
-
+            
             // Limites de la caméra pour qu'elle ne sorte pas de la map (800x640 px)
             // La caméra fait 180x140 px, donc :
             // - Largeur : 90px < camera.x < 710px (pour ne pas voir les bords)
@@ -1050,20 +687,20 @@ public class GameScreen implements Screen {
             float cameraMaxX = 710f;
             float cameraMinY = 70f;
             float cameraMaxY = 570f;
-
+            
             // Clamper la position de la caméra dans les limites
             float clampedCameraX = Math.max(cameraMinX, Math.min(cameraMaxX, playerCenterX));
             float clampedCameraY = Math.max(cameraMinY, Math.min(cameraMaxY, playerCenterY));
-
+            
             // Positionner la caméra (clampée si nécessaire)
             camera.position.set(clampedCameraX, clampedCameraY, 0);
-
+            
             // Mettre à jour la position précédente
             lastPlayerX = currentPlayerX;
             lastPlayerY = currentPlayerY;
         }
     }
-
+    
     /**
      * Limite le joueur dans les bounds de la map.
      */
@@ -1071,27 +708,27 @@ public class GameScreen implements Screen {
         if (mapLoader == null || player == null) {
             return;
         }
-
+        
         // Récupérer les dimensions de la map en pixels
         int mapWidthPixels = mapLoader.getMapWidth() * mapLoader.getTileWidth();
         int mapHeightPixels = mapLoader.getMapHeight() * mapLoader.getTileHeight();
-
+        
         float playerWidth = player.getWidth();
         float playerHeight = player.getHeight();
-
+        
         // Limiter le joueur dans les bounds de la map
         float minX = 0;
         float minY = 0;
         float maxX = mapWidthPixels - playerWidth;
         float maxY = mapHeightPixels - playerHeight;
-
+        
         float x = Math.max(minX, Math.min(maxX, player.getX()));
         float y = Math.max(minY, Math.min(maxY, player.getY()));
-
+        
         player.setX(x);
         player.setY(y);
     }
-
+    
     /**
      * Vérifie si le joueur peut se déplacer dans une direction sans entrer en collision avec un ennemi.
      * 
@@ -1101,12 +738,10 @@ public class GameScreen implements Screen {
      * @return true si le mouvement est possible (pas de collision avec un ennemi)
      */
     private boolean canPlayerMove(Direction direction, float deltaTime, boolean isRunning) {
-        // ENNEMIS DÉSACTIVÉS POUR TESTER LA MAP - retourner true directement
         if (player == null || !player.isAlive()) {
             return true;
         }
         
-        // Vérification des collisions avec les ennemis désactivée
         if (enemies == null) {
             return true;
         }
@@ -1144,8 +779,6 @@ public class GameScreen implements Screen {
         float newPlayerHitboxX = playerSpriteCenterX - playerHitboxWidth / 2f;
         float newPlayerHitboxY = playerSpriteCenterY - playerHitboxHeight / 2f;
         
-        // ENNEMIS DÉSACTIVÉS POUR TESTER LA MAP
-        /*
         // Vérifier les collisions avec chaque ennemi
         for (Enemy enemy : enemies) {
             if (enemy == null || !enemy.isAlive()) {
@@ -1169,7 +802,6 @@ public class GameScreen implements Screen {
                 return false;
             }
         }
-        */
         
         return true; // Pas de collision, le mouvement est possible
     }
@@ -1178,12 +810,8 @@ public class GameScreen implements Screen {
      * Résout les collisions entre le joueur et les ennemis pour empêcher le chevauchement.
      * Si les hitboxes se chevauchent, remet le joueur à sa position précédente.
      * Ne pousse PAS l'ennemi.
-     * ENNEMIS DÉSACTIVÉS POUR TESTER LA MAP
      */
     private void resolveEntityCollisions() {
-        // ENNEMIS DÉSACTIVÉS POUR TESTER LA MAP
-        return;
-        /*
         if (player == null || enemies == null || !player.isAlive()) {
             return;
         }
@@ -1247,7 +875,6 @@ public class GameScreen implements Screen {
                 }
             }
         }
-        */
     }
     
     /**
@@ -1258,17 +885,17 @@ public class GameScreen implements Screen {
         float screenHeight = Gdx.graphics.getHeight();
         float playerWidth = player.getWidth();
         float playerHeight = player.getHeight();
-
+        
         float maxX = screenWidth - playerWidth;
         float maxY = screenHeight - playerHeight;
-
+        
         float x = Math.max(0, Math.min(maxX, player.getX()));
         float y = Math.max(0, Math.min(maxY, player.getY()));
-
+        
         player.setX(x);
         player.setY(y);
     }
-
+    
     /**
      * Limite l'ennemi dans les bounds de l'écran.
      */
@@ -1276,222 +903,163 @@ public class GameScreen implements Screen {
         if (enemy == null) {
             return;
         }
-
+        
         float screenWidth = Gdx.graphics.getWidth();
         float screenHeight = Gdx.graphics.getHeight();
         float enemyWidth = enemy.getWidth();
         float enemyHeight = enemy.getHeight();
-
+        
         float maxX = screenWidth - enemyWidth;
         float maxY = screenHeight - enemyHeight;
-
+        
         float x = Math.max(0, Math.min(maxX, enemy.getX()));
         float y = Math.max(0, Math.min(maxY, enemy.getY()));
-
+        
         enemy.setX(x);
         enemy.setY(y);
     }
-
+    
+    @Override
+    public void resize(int width, int height) {
+        // Mettre à jour le viewport pour le nouveau format d'écran
+        // Le StretchViewport étirera automatiquement les 180x140 pixels pour remplir l'écran
+        viewport.update(width, height);
+        camera.update();
+    }
+    
     @Override
     public void pause() {
         // Mettre en pause si nécessaire
     }
-
+    
     @Override
     public void resume() {
         // Reprendre si nécessaire
     }
-
+    
+    /**
+     * Méthode appelée par GameSettingsScreen pour reprendre le jeu.
+     */
+    public void resumeGame() {
+        // Reprendre le jeu (méthode appelée depuis GameSettingsScreen)
+    }
+    
     @Override
     public void hide() {
-        // Sauvegarder la position de la caméra quand l'écran devient invisible
-        if (camera != null) {
-            savedCameraX = camera.position.x;
-            savedCameraY = camera.position.y;
-            savedCameraZ = camera.position.z;
-            Gdx.app.log("GameScreen", String.format("Position de la caméra sauvegardée : (%.1f, %.1f)",
-                    savedCameraX, savedCameraY));
-        }
+        // Appelé quand l'écran devient invisible
     }
-
+    
     /**
-     * Dessine l'action panel avec l'inventaire et les items utilisables.
-     * sprite1: inventaire (vide de base, se remplit avec les items collectés)
-     * sprite2: shield item (affiché dans les carrés de l'inventaire si disponible)
-     * sprite3: heal item (affiché dans les carrés de l'inventaire si disponible)
+     * Dessine l'action panel avec 4 slots en bas centré.
+     * sprite3 et sprite4: carrés (slots) pour placer les collectibles
+     * sprite1: damage boost collectible
+     * sprite2: speed boost collectible
+     * sprite5: shield potion
+     * sprite6: heal potion
      */
     private void renderActionPanel() {
         if (actionPanelMapping == null || player == null) {
             return;
         }
-
+        
+        // La caméra UI est déjà configurée depuis l'appelant
         float screenWidth = Gdx.graphics.getWidth();
         float screenHeight = Gdx.graphics.getHeight();
-
-        // Scale pour agrandir l'action panel
-        float panelScale = 5f; // Augmenté de 3f à 5f
-
-        // Afficher sprite1 (inventaire) - positionné à gauche, juste en dessous du
-        // CharacterPanel
-        com.badlogic.gdx.graphics.g2d.TextureRegion inventorySprite = actionPanelMapping.getSprite("sprite1");
-        if (inventorySprite != null) {
-            float inventoryWidth = inventorySprite.getRegionWidth() * panelScale;
-            float inventoryHeight = inventorySprite.getRegionHeight() * panelScale;
-
-            // Calculer la position du CharacterPanel pour placer l'inventaire juste en
-            // dessous
-            float characterPanelX = 10f;
-            float characterPanelScale = 3f;
-            // Récupérer le sprite actuel du CharacterPanel (même logique que
-            // renderCharacterPanel)
-            String characterSpriteName = "sprite1"; // Par défaut
-            if (characterPanelMapping != null && player != null) {
-                int health = player.getHealth();
-                int maxHealth = player.getMaxHealth();
-                int shield = player.getShield();
-                int maxShield = player.getMaxShield();
-                if (!player.isAlive() || (health == 0 && shield == 0)) {
-                    characterSpriteName = "sprite1";
-                } else if (health == maxHealth && shield == maxShield && maxShield > 0) {
-                    characterSpriteName = "sprite2";
-                }
-            }
-            com.badlogic.gdx.graphics.g2d.TextureRegion characterSprite = characterPanelMapping != null
-                    ? characterPanelMapping.getSprite(characterSpriteName)
-                    : null;
-            float characterPanelHeight = characterSprite != null
-                    ? characterSprite.getRegionHeight() * characterPanelScale
-                    : 0f;
-            float characterPanelY = screenHeight - characterPanelHeight - 10f;
-
-            // Positionner l'inventaire vertical à gauche, collé au bord, juste en dessous
-            // du CharacterPanel
-            // Après rotation de -90°, inventoryWidth devient la hauteur et inventoryHeight
-            // devient la largeur
-            // Pour coller au bord gauche, le point de rotation doit être à inventoryHeight
-            // / 2f (largeur après rotation / 2)
-            float inventoryX = 0f; // Collé au bord gauche de l'écran
-            float inventoryY = characterPanelY - inventoryWidth - 5f; // Juste en dessous du CharacterPanel avec
-                                                                      // espacement
-
-            // Dessiner l'inventaire agrandi avec rotation de -90° (vers la gauche,
-            // vertical)
-            // Le point de rotation est au centre du sprite
-            float originX = inventoryWidth / 2f;
-            float originY = inventoryHeight / 2f;
-            // Position du point de rotation : x doit être à inventoryHeight / 2f pour que
-            // le bord gauche soit à 0
-            // y doit être à inventoryY + inventoryWidth / 2f pour centrer verticalement
-            batch.draw(inventorySprite,
-                    inventoryHeight / 2f, // Position X du point de rotation (pour que le bord gauche soit à 0)
-                    inventoryY + inventoryWidth / 2f, // Position Y du point de rotation
-                    originX, originY,
-                    inventoryWidth, inventoryHeight,
-                    1f, 1f,
-                    -90f); // Rotation de -90 degrés (vers la gauche, vertical)
-
-            // Calculer les positions des items en utilisant les coordonnées absolues de
-            // l'image
-            // sprite1: x=12, y=44, width=168, height=20
-            // sprite2 (shield): x=163, y=82, width=9, height=12
-            // sprite3 (heal): x=179, y=82, width=9, height=12
-
-            // Position relative des items par rapport à sprite1
-            // sprite2 est à x=163 dans l'image, sprite1 commence à x=12
-            // Donc sprite2 est à (163-12) = 151 pixels depuis le début de sprite1
-            float sprite1StartX = 12f; // Position X de sprite1 dans l'image originale
-            float sprite2AbsX = 163f; // Position X absolue de sprite2 dans l'image
-            float sprite3AbsX = 179f; // Position X absolue de sprite3 dans l'image
-            float sprite2RelX = sprite2AbsX - sprite1StartX; // Position relative de sprite2 (151px)
-            float sprite3RelX = sprite3AbsX - sprite1StartX; // Position relative de sprite3 (167px)
-
-            // Position Y relative : sprite1 commence à y=44, sprite2/sprite3 à y=82
-            // Donc sprite2/sprite3 sont à (82-44) = 38 pixels depuis le haut de sprite1
-            // Mais sprite1 fait 20px de haut, donc les items sont en dehors de sprite1
-            // verticalement
-            // On va les centrer verticalement dans sprite1 quand même
-            float sprite1StartY = 44f;
-            float sprite2AbsY = 82f;
-            float sprite2RelY = sprite2AbsY - sprite1StartY; // 38px, mais sprite1 fait 20px de haut
-
-            // Calculer les positions des items dans l'inventaire agrandi
-            // Les items doivent être centrés dans leurs carrés respectifs
-            // sprite1 fait 168px de large, on suppose 8 carrés avec des bordures
-            // sprite2 (shield) est à x=151 (relatif), sprite3 (heal) à x=167 (relatif)
-
-            // Analysons la structure : sprite1 commence à x=12, les items sont à x=163 et
-            // x=179
-            // Cela suggère que les carrés sont probablement de ~20-21px avec des bordures
-            // Calculons plus précisément en utilisant les positions exactes
-
-            // Si on regarde les positions : sprite2 à 151px, sprite3 à 167px depuis le
-            // début de sprite1
-            // La différence entre les deux est 16px, ce qui suggère qu'ils sont dans des
-            // carrés adjacents
-            // Supposons que chaque carré fait environ 20-21px avec un petit espacement
-
-            // Calculer la taille d'un carré en analysant la structure
-            // sprite1 fait 168px de large, on suppose 8 carrés
-            // En regardant l'image de référence, les carrés semblent bien espacés
-            float sprite1Width = 168f;
-            float numSlots = 8f; // 8 carrés dans l'inventaire
-            float squareSize = sprite1Width / numSlots; // 21px par carré exactement
-
-            // Les items doivent être centrés dans leurs carrés respectifs
-            // Dans l'image de référence : heal (rouge) est dans le premier slot, shield
-            // (bleu) dans le deuxième
-            int healSlotIndex = 0; // Premier slot pour heal (rouge)
-            int shieldSlotIndex = 1; // Deuxième slot pour shield (bleu)
-
-            // Calculer le centre de chaque carré (en tenant compte de la rotation de -90°,
-            // vertical)
-            float squareSizeScaled = squareSize * panelScale;
-
-            // Position du centre de rotation de l'inventaire (même position que dans
-            // batch.draw)
-            float inventoryCenterX = inventoryHeight / 2f; // Position X du point de rotation
-            float inventoryCenterY = inventoryY + inventoryWidth / 2f; // Position Y du point de rotation
-
-            // Après rotation de -90°, les slots sont maintenant verticaux
-            // Le premier slot est en bas, le dernier en haut
-            // Calculer les positions des items en tenant compte de la rotation
-            float firstSquareCenterY = inventoryCenterY - (inventoryWidth / 2f) + squareSizeScaled / 2f;
-
-            // Calculer les centres des carrés pour heal et shield (après rotation,
-            // vertical)
-            float healSquareCenterY = firstSquareCenterY + healSlotIndex * squareSizeScaled;
-            float shieldSquareCenterY = firstSquareCenterY + shieldSlotIndex * squareSizeScaled;
-
-            // Afficher sprite3 (heal) dans le premier carré si disponible
-            int healCount = player.getInventory().getItemCount(Inventory.ItemType.HEAL);
-            if (healCount > 0) {
-                com.badlogic.gdx.graphics.g2d.TextureRegion healSprite = actionPanelMapping.getSprite("sprite3");
-                if (healSprite != null) {
-                    float healWidth = healSprite.getRegionWidth() * panelScale;
-                    float healHeight = healSprite.getRegionHeight() * panelScale;
-                    // Centrer parfaitement l'item dans son carré (après rotation, vertical)
-                    float healX = inventoryCenterX - healWidth / 2f;
-                    float healY = healSquareCenterY - healHeight / 2f;
-                    batch.draw(healSprite, healX, healY, healWidth, healHeight);
-                }
-            }
-
-            // Afficher sprite2 (shield) dans le deuxième carré si disponible
-            int shieldCount = player.getInventory().getItemCount(Inventory.ItemType.SHIELD);
-            if (shieldCount > 0) {
-                com.badlogic.gdx.graphics.g2d.TextureRegion shieldSprite = actionPanelMapping.getSprite("sprite2");
-                if (shieldSprite != null) {
-                    float shieldWidth = shieldSprite.getRegionWidth() * panelScale;
-                    float shieldHeight = shieldSprite.getRegionHeight() * panelScale;
-                    // Centrer parfaitement l'item dans son carré (après rotation, vertical)
-                    float shieldX = inventoryCenterX - shieldWidth / 2f;
-                    float shieldY = shieldSquareCenterY - shieldHeight / 2f;
-                    batch.draw(shieldSprite, shieldX, shieldY, shieldWidth, shieldHeight);
+        
+        // Scale pour agrandir les slots
+        float slotScale = 4f;
+        
+        // Récupérer les sprites des slots (sprite3 et sprite4 sont les carrés)
+        com.badlogic.gdx.graphics.g2d.TextureRegion slotSprite = actionPanelMapping.getSprite("sprite3");
+        if (slotSprite == null) {
+            slotSprite = actionPanelMapping.getSprite("sprite4");
+        }
+        
+        if (slotSprite == null) {
+            return;
+        }
+        
+        float slotWidth = slotSprite.getRegionWidth() * slotScale;
+        float slotHeight = slotSprite.getRegionHeight() * slotScale;
+        float spacing = 10f; // Espacement entre les slots
+        
+        // Calculer la position pour centrer les 4 slots en bas
+        float totalWidth = slotWidth * 4 + spacing * 3;
+        float startX = (screenWidth - totalWidth) / 2f;
+        float slotY = 20f; // Position en bas de l'écran
+        
+        // Afficher les 4 slots
+        for (int i = 0; i < 4; i++) {
+            float slotX = startX + i * (slotWidth + spacing);
+            batch.draw(slotSprite, slotX, slotY, slotWidth, slotHeight);
+            
+            // Afficher le collectible dans le slot si disponible
+            Inventory.ItemType itemType = getItemTypeForSlot(i);
+            int itemCount = itemType != null ? player.getInventory().getItemCount(itemType) : 0;
+            if (itemType != null && itemCount > 0) {
+                com.badlogic.gdx.graphics.g2d.TextureRegion itemSprite = getSpriteForItemType(itemType);
+                if (itemSprite != null) {
+                    float itemWidth = itemSprite.getRegionWidth() * slotScale;
+                    float itemHeight = itemSprite.getRegionHeight() * slotScale;
+                    // Centrer l'item dans le slot
+                    float itemX = slotX + (slotWidth - itemWidth) / 2f;
+                    float itemY = slotY + (slotHeight - itemHeight) / 2f;
+                    batch.draw(itemSprite, itemX, itemY, itemWidth, itemHeight);
+                    
+                    // Afficher le compteur en haut à droite du slot
+                    if (itemCount > 1) {
+                        String countText = String.valueOf(itemCount);
+                        float textX = slotX + slotWidth - 5f; // Position à droite
+                        float textY = slotY + slotHeight - 5f; // Position en haut
+                        font.setColor(1f, 1f, 1f, 1f); // Blanc
+                        font.draw(batch, countText, textX, textY);
+                    }
                 }
             }
         }
     }
-
+    
+    /**
+     * Retourne le type d'item pour un slot donné.
+     * Slot 0: DAMAGE_BOOST, Slot 1: SPEED_BOOST, Slot 2: SHIELD_POTION, Slot 3: HEAL_POTION
+     */
+    private Inventory.ItemType getItemTypeForSlot(int slotIndex) {
+        switch (slotIndex) {
+            case 0:
+                return Inventory.ItemType.DAMAGE_BOOST;
+            case 1:
+                return Inventory.ItemType.SPEED_BOOST;
+            case 2:
+                return Inventory.ItemType.SHIELD_POTION;
+            case 3:
+                return Inventory.ItemType.HEAL_POTION;
+            default:
+                return null;
+        }
+    }
+    
+    /**
+     * Retourne le sprite correspondant au type d'item.
+     */
+    private com.badlogic.gdx.graphics.g2d.TextureRegion getSpriteForItemType(Inventory.ItemType itemType) {
+        if (actionPanelMapping == null) {
+            return null;
+        }
+        
+        switch (itemType) {
+            case DAMAGE_BOOST:
+                return actionPanelMapping.getSprite("sprite1");
+            case SPEED_BOOST:
+                return actionPanelMapping.getSprite("sprite2");
+            case SHIELD_POTION:
+                return actionPanelMapping.getSprite("sprite5");
+            case HEAL_POTION:
+                return actionPanelMapping.getSprite("sprite6");
+            default:
+                return null;
+        }
+    }
+    
     /**
      * Dessine le character panel selon l'état du joueur.
      * sprite2: full health et full shield
@@ -1501,12 +1069,12 @@ public class GameScreen implements Screen {
         if (characterPanelMapping == null || player == null) {
             return;
         }
-
+        
         int health = player.getHealth();
         int maxHealth = player.getMaxHealth();
         int shield = player.getShield();
         int maxShield = player.getMaxShield();
-
+        
         // Déterminer quel sprite afficher
         String spriteName;
         if (!player.isAlive() || (health == 0 && shield == 0)) {
@@ -1516,11 +1084,10 @@ public class GameScreen implements Screen {
             // sprite2: full health et full shield
             spriteName = "sprite2";
         } else {
-            // Pour l'instant, on affiche sprite1 par défaut (l'entre-deux sera géré plus
-            // tard)
+            // Pour l'instant, on affiche sprite1 par défaut (l'entre-deux sera géré plus tard)
             spriteName = "sprite1";
         }
-
+        
         // Récupérer le sprite
         com.badlogic.gdx.graphics.g2d.TextureRegion sprite = characterPanelMapping.getSprite(spriteName);
         if (sprite != null) {
@@ -1528,14 +1095,158 @@ public class GameScreen implements Screen {
             float characterPanelScale = 3f;
             float spriteWidth = sprite.getRegionWidth() * characterPanelScale;
             float spriteHeight = sprite.getRegionHeight() * characterPanelScale;
-
+            
             // Positionner le panel en haut à gauche (ou ailleurs selon vos préférences)
             float x = 10f;
             float y = Gdx.graphics.getHeight() - spriteHeight - 10f;
             batch.draw(sprite, x, y, spriteWidth, spriteHeight);
         }
     }
-
+    
+    /**
+     * Vérifie si des ennemis sont morts et drop des collectibles aléatoirement.
+     */
+    private void checkEnemyDeathsAndDropCollectibles() {
+        if (enemies == null || actionPanelMapping == null) {
+            return;
+        }
+        
+        // Utiliser un Iterator pour éviter les problèmes de modification de liste pendant l'itération
+        java.util.Iterator<Enemy> iterator = enemies.iterator();
+        while (iterator.hasNext()) {
+            Enemy enemy = iterator.next();
+            if (enemy != null && !enemy.isAlive()) {
+                // Drop aléatoire d'un collectible (25% de chance pour chaque type)
+                float rand = (float) Math.random();
+                Inventory.ItemType itemType = null;
+                
+                if (rand < 0.25f) {
+                    itemType = Inventory.ItemType.DAMAGE_BOOST;
+                } else if (rand < 0.5f) {
+                    itemType = Inventory.ItemType.SPEED_BOOST;
+                } else if (rand < 0.75f) {
+                    itemType = Inventory.ItemType.SHIELD_POTION;
+                } else {
+                    itemType = Inventory.ItemType.HEAL_POTION;
+                }
+                
+                // Créer le collectible à la position de l'ennemi
+                float enemyX = enemy.getX() + enemy.getWidth() / 2f;
+                float enemyY = enemy.getY() + enemy.getHeight() / 2f;
+                
+                Collectible collectible = new Collectible(enemyX, enemyY, itemType, actionPanelMapping);
+                collectibles.add(collectible);
+                
+                // Pour les slimes uniquement : respawn jusqu'à 2 fois (3 slimes au total par zone)
+                // avec un délai de 10 secondes
+                if (enemy instanceof Slime && enemy.getRespawnCount() < 2) {
+                    Slime deadSlime = (Slime) enemy;
+                    int zoneId = deadSlime.getZoneId();
+                    int level = deadSlime.getLevel();
+                    float initialX = deadSlime.getInitialX();
+                    float initialY = deadSlime.getInitialY();
+                    
+                    // Ajouter à la liste des respawns en attente (sera créé après 10 secondes)
+                    PendingSlimeRespawn pendingRespawn = new PendingSlimeRespawn(
+                        gameTime, zoneId, level, initialX, initialY, deadSlime.getRespawnCount() + 1);
+                    pendingSlimeRespawns.add(pendingRespawn);
+                }
+                
+                // Retirer l'ennemi mort de la liste
+                iterator.remove();
+                break; // Ne traiter qu'un ennemi par frame
+            }
+        }
+        
+    }
+    
+    /**
+     * Vérifie et traite les respawns de slimes en attente.
+     * Crée un nouveau slime si 10 secondes se sont écoulées depuis la mort.
+     *
+     * @param delta Temps écoulé depuis la dernière frame
+     */
+    private void processPendingSlimeRespawns(float delta) {
+        if (pendingSlimeRespawns == null || pendingSlimeRespawns.isEmpty()) {
+            return;
+        }
+        
+        float respawnDelay = 10f; // Délai de 10 secondes
+        
+        // Utiliser un Iterator pour éviter les problèmes de modification de liste
+        java.util.Iterator<PendingSlimeRespawn> iterator = pendingSlimeRespawns.iterator();
+        while (iterator.hasNext()) {
+            PendingSlimeRespawn pending = iterator.next();
+            float elapsedTime = gameTime - pending.deathTime;
+            
+            // Si 10 secondes se sont écoulées, créer le nouveau slime
+            if (elapsedTime >= respawnDelay) {
+                // Créer un nouveau slime à la position initiale
+                Slime newSlime = new Slime(pending.initialX, pending.initialY, pending.level);
+                newSlime.setTarget(player);
+                newSlime.setMapLoader(mapLoader);
+                newSlime.setZoneId(pending.zoneId);
+                newSlime.setInitialPosition(pending.initialX, pending.initialY);
+                newSlime.setRespawnCount(pending.respawnCount);
+                
+                // Ajouter le nouveau slime à la liste
+                enemies.add(newSlime);
+                
+                // Initialiser les collisions pour le nouveau slime
+                if (mapLoader != null && newSlime.getHitboxWidth() > 0 && newSlime.getHitboxHeight() > 0) {
+                    float spriteWidth = 16f; // Slimes : 16x16 pixels
+                    float spriteHeight = 16f;
+                    CollisionHandler enemyCollision = new CollisionHandler(
+                        mapLoader, newSlime.getHitboxWidth(), newSlime.getHitboxHeight(), spriteWidth, spriteHeight);
+                    newSlime.getMovementHandler().setCollisionHandler(enemyCollision);
+                }
+                
+                // Retirer de la liste des respawns en attente
+                iterator.remove();
+            }
+        }
+    }
+    
+    /**
+     * Ramasse les collectibles proches du joueur avec la touche T.
+     */
+    private void pickupCollectibles() {
+        if (collectibles == null || player == null) {
+            return;
+        }
+        
+        float playerX = player.getX();
+        float playerY = player.getY();
+        float playerWidth = player.getWidth();
+        float playerHeight = player.getHeight();
+        
+        // Parcourir les collectibles et ramasser ceux qui sont proches
+        java.util.Iterator<Collectible> iterator = collectibles.iterator();
+        while (iterator.hasNext()) {
+            Collectible collectible = iterator.next();
+            if (collectible != null && !collectible.isCollected()) {
+                if (collectible.canBePickedUp(playerX, playerY, playerWidth, playerHeight)) {
+                    // Ajouter à l'inventaire
+                    if (player.getInventory().addItem(collectible.getItemType())) {
+                        collectible.collect();
+                        iterator.remove(); // Retirer de la liste
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * Nettoie les collectibles collectés de la liste.
+     */
+    private void cleanupCollectedCollectibles() {
+        if (collectibles == null) {
+            return;
+        }
+        
+        collectibles.removeIf(Collectible::isCollected);
+    }
+    
     /**
      * Initialise les collisions pour le joueur et l'ennemi.
      */
@@ -1543,43 +1254,47 @@ public class GameScreen implements Screen {
         if (mapLoader == null) {
             return;
         }
-
-        // Configurer les collisions pour le joueur en utilisant sa hitbox fixe (20x27)
+        
+        // Configurer les collisions pour le joueur en utilisant sa hitbox fixe (13x15)
+        // Le sprite rendu fait 32x32 pixels (64x64 avec scale 0.5)
         if (player != null && player.getHitboxWidth() > 0 && player.getHitboxHeight() > 0) {
+            float spriteWidth = 32f; // Sprite rendu fait 32x32 pixels
+            float spriteHeight = 32f;
             CollisionHandler playerCollision = new CollisionHandler(
-                    mapLoader, player.getHitboxWidth(), player.getHitboxHeight());
+                mapLoader, player.getHitboxWidth(), player.getHitboxHeight(), spriteWidth, spriteHeight);
             player.getMovementHandler().setCollisionHandler(playerCollision);
-            Gdx.app.log("GameScreen", String.format(
-                    "Collisions initialisées pour le joueur (hitbox: %.1fx%.1f pixels) à la position (%.1f, %.1f)",
-                    player.getHitboxWidth(), player.getHitboxHeight(), player.getX(), player.getY()));
-
-            // Vérifier si la position initiale est valide (en utilisant la position de la
-            // hitbox centrée)
-            if (playerCollision != null) {
-                float playerHitboxX = player.getHitboxX();
-                float playerHitboxY = player.getHitboxY();
-                boolean isValid = playerCollision.isValidPosition(playerHitboxX, playerHitboxY);
-                Gdx.app.log("GameScreen", String.format("Position initiale du joueur valide : %s", isValid));
-            }
         } else {
-            Gdx.app.log("GameScreen", "Impossible d'initialiser les collisions : hitbox du joueur invalide");
+            Gdx.app.error("GameScreen", "Impossible d'initialiser les collisions : hitbox du joueur invalide");
         }
-
-        // Configurer les collisions pour les ennemis (slimes) en utilisant leur hitbox
+        
+        // Configurer les collisions pour les ennemis en utilisant leur hitbox et leurs dimensions de sprite
         if (enemies != null) {
             for (Enemy enemy : enemies) {
                 if (enemy != null && enemy.getHitboxWidth() > 0 && enemy.getHitboxHeight() > 0) {
+                    // Déterminer les dimensions du sprite selon le type d'ennemi
+                    float spriteWidth, spriteHeight;
+                    if (enemy instanceof Slime) {
+                        // Slimes : scale ~0.59, taille cible ~16 pixels
+                        spriteWidth = 16f;
+                        spriteHeight = 16f;
+                    } else if (enemy instanceof Vampire) {
+                        // Vampires : scale 0.5, taille cible 32 pixels
+                        spriteWidth = 32f;
+                        spriteHeight = 32f;
+                    } else {
+                        // Par défaut, utiliser les dimensions visuelles
+                        spriteWidth = enemy.getWidth();
+                        spriteHeight = enemy.getHeight();
+                    }
+                    
                     CollisionHandler enemyCollision = new CollisionHandler(
-                            mapLoader, enemy.getHitboxWidth(), enemy.getHitboxHeight());
+                        mapLoader, enemy.getHitboxWidth(), enemy.getHitboxHeight(), spriteWidth, spriteHeight);
                     enemy.getMovementHandler().setCollisionHandler(enemyCollision);
-                    Gdx.app.log("GameScreen",
-                            String.format("Collisions initialisées pour un ennemi (hitbox: %.1fx%.1f pixels)",
-                                    enemy.getHitboxWidth(), enemy.getHitboxHeight()));
                 }
             }
         }
     }
-
+    
     @Override
     public void dispose() {
         if (player != null) {
@@ -1601,14 +1316,15 @@ public class GameScreen implements Screen {
         if (batch != null) {
             batch.dispose();
         }
-        if (shapeRenderer != null) {
-            shapeRenderer.dispose();
-        }
         if (healthBar != null) {
             healthBar.dispose();
         }
         if (shieldBar != null) {
             shieldBar.dispose();
         }
+        if (font != null) {
+            font.dispose();
+        }
     }
 }
+

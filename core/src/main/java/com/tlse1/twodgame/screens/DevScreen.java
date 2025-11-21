@@ -89,8 +89,6 @@ public class DevScreen implements Screen {
     private void validateAssets() {
         if (menuBackground == null || resumeButton == null) {
             Gdx.app.error("DevScreen", "Impossible de charger les sprites du menu");
-        } else {
-            Gdx.app.log("DevScreen", "Sprites du menu chargés avec succès");
         }
     }
 
@@ -236,7 +234,6 @@ public class DevScreen implements Screen {
      * Retourne au menu principal
      */
     private void returnToMenu() {
-        Gdx.app.log("DevScreen", "Retour au menu");
         game.setScreen(new MenuScreen(game));
         dispose();
     }
@@ -245,7 +242,6 @@ public class DevScreen implements Screen {
      * Quitte le jeu
      */
     private void quitGame() {
-        Gdx.app.log("DevScreen", "Fermeture du jeu");
         Gdx.app.exit();
     }
 

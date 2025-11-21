@@ -38,9 +38,6 @@ public class TextMapping {
             // Charger tous les sprites depuis text1_sprites.json
             JsonValue spritesData = jsonReader.parse(Gdx.files.internal("gui/text1_sprites.json"));
             loadAllSprites(spritesData);
-            
-            Gdx.app.log("TextMapping", String.format(
-                "Mapping texte chargé: %d sprites", allSprites.size()));
         } catch (Exception e) {
             Gdx.app.error("TextMapping", "Erreur lors du chargement du mapping texte: " + e.getMessage());
             e.printStackTrace();
@@ -67,9 +64,6 @@ public class TextMapping {
             // Créer la TextureRegion
             TextureRegion region = new TextureRegion(textTexture, x, y, width, height);
             allSprites.put(name, region);
-            
-            Gdx.app.debug("TextMapping", String.format(
-                "Sprite texte '%s' chargé: %dx%d à (%d,%d)", name, width, height, x, y));
         }
     }
     

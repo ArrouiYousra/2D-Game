@@ -140,7 +140,6 @@ public class Projectile {
             if (damageCooldown >= DAMAGE_INTERVAL) {
                 player.takeDamage((int)damagePerSecond);
                 damageCooldown = 0f;
-                Gdx.app.log("Projectile", String.format("Projectile inflige %.0f dégât au joueur", damagePerSecond));
             }
             
             // Le projectile continue à travers le joueur (ne s'arrête pas)

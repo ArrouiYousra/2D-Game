@@ -122,8 +122,6 @@ public class MenuScreen implements Screen {
     private void validateAssets() {
         if (menuBackground == null || resumeButton == null) {
             Gdx.app.error("MenuScreen", "Impossible de charger les sprites du menu");
-        } else {
-            Gdx.app.log("MenuScreen", "Sprites du menu chargés avec succès");
         }
     }
 
@@ -312,7 +310,7 @@ public class MenuScreen implements Screen {
         }
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-            Gdx.app.log("MenuScreen", "ESC pressé");
+            // ESC pressé
         }
     }
 
@@ -347,7 +345,6 @@ public class MenuScreen implements Screen {
      * Navigue vers les paramètres
      */
     private void navigateToSettings() {
-        Gdx.app.log("MenuScreen", "Navigation vers Settings");
         game.setScreen(new SettingsScreen(game));
         dispose();
     }
@@ -356,7 +353,6 @@ public class MenuScreen implements Screen {
      * Navigue vers l'écran des niveaux
      */
     private void navigateToLevels() {
-        Gdx.app.log("MenuScreen", "Navigation vers Levels");
         game.setScreen(new DevScreen(game));
         dispose();
     }
@@ -365,7 +361,6 @@ public class MenuScreen implements Screen {
      * Navigue vers l'inventaire
      */
     private void navigateToInventory() {
-        Gdx.app.log("MenuScreen", "Navigation vers Inventory");
         game.setScreen(new DevScreen(game));
         dispose();
     }
@@ -374,7 +369,6 @@ public class MenuScreen implements Screen {
      * Navigue vers l'équipement
      */
     private void navigateToStuff() {
-        Gdx.app.log("MenuScreen", "Navigation vers Stuff");
         game.setScreen(new DevScreen(game));
         dispose();
     }
@@ -383,7 +377,6 @@ public class MenuScreen implements Screen {
      * Navigue vers la boutique
      */
     private void navigateToShop() {
-        Gdx.app.log("MenuScreen", "Navigation vers Shop");
         game.setScreen(new DevScreen(game));
         dispose();
     }
@@ -392,7 +385,6 @@ public class MenuScreen implements Screen {
      * Démarre le jeu
      */
     private void startGame() {
-        Gdx.app.log("MenuScreen", "Démarrage du jeu");
         game.setScreen(new GameScreen(game));
         dispose();
     }
@@ -401,7 +393,6 @@ public class MenuScreen implements Screen {
      * Quitte le jeu
      */
     private void quitGame() {
-        Gdx.app.log("MenuScreen", "Fermeture du jeu");
         Gdx.app.exit();
     }
 

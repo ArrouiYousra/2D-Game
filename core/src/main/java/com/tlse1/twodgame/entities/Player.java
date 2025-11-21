@@ -22,6 +22,20 @@ public class Player extends Character {
     // Mapping : animationType_direction_frameIndex -> hitbox {width, height}
     private Map<String, HitboxData> attackHitboxes;
     
+    // Boosts actifs (temporaires, 5 secondes)
+    private int damageBoost = 0;  // Bonus de dégâts (+2 par collectible)
+    private int speedBoost = 0;   // Bonus de vitesse (+2 par collectible)
+    
+    // Timers pour les boosts (en secondes)
+    private float damageBoostTimer = 0f;  // Temps restant pour le boost de dégâts
+    private float speedBoostTimer = 0f;   // Temps restant pour le boost de vitesse
+    
+    // Durée des boosts (5 secondes)
+    private static final float BOOST_DURATION = 5f;
+    
+    // Vitesse de base (pour restaurer après les boosts)
+    private float baseSpeed = 150f;
+    
     /**
      * Structure pour stocker les données de hitbox
      */
@@ -51,13 +65,13 @@ public class Player extends Character {
     public Player(float x, float y) {
         super(x, y);
         
-        // Configurer la santé du joueur (50 HP)
-        combatHandler.setMaxHealth(50);
-        combatHandler.setHealth(50);
+        // Configurer la santé du joueur (100 HP)
+        combatHandler.setMaxHealth(100);
+        combatHandler.setHealth(100);
         
-        // Configurer le shield du joueur (3 shield max pour tester)
-        combatHandler.setMaxShield(3);
-        combatHandler.setShield(3);
+        // Configurer le shield du joueur (50 shield max)
+        combatHandler.setMaxShield(50);
+        combatHandler.setShield(50);
         
         // Définir la hitbox fixe du joueur (20x27 pixels, centrée sur le sprite visuel)
         setHitboxWidth(13f);
@@ -65,6 +79,9 @@ public class Player extends Character {
         
         // Initialiser l'inventaire
         inventory = new Inventory();
+        
+        // Sauvegarder la vitesse de base
+        baseSpeed = movementHandler.getSpeed();
         
         // Charger les hitboxes dynamiques pour les animations d'attaque
         loadAttackHitboxes();
@@ -95,18 +112,54 @@ public class Player extends Character {
         return inventory;
     }
     
+    
     /**
-     * Utilise un item de type shield.
-     * Restaure le shield du joueur.
+     * Utilise un collectible de type damage boost.
+     * Augmente les dégâts du joueur de +10 pendant 5 secondes.
+     * Si un boost est déjà actif, il est remplacé (pas accumulé).
      * 
-     * @return true si un item shield a été utilisé
+     * @return true si un item damage boost a été utilisé
      */
-    public boolean useShieldItem() {
-        if (inventory.useItem(Inventory.ItemType.SHIELD)) {
-            // Restaurer le shield à son maximum
+    public boolean useDamageBoost() {
+        if (inventory.useItem(Inventory.ItemType.DAMAGE_BOOST)) {
+            damageBoost = 10;
+            damageBoostTimer = BOOST_DURATION; // Réinitialiser le timer à 5 secondes
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Utilise un collectible de type speed boost.
+     * Augmente la vitesse du joueur de +10 pendant 5 secondes.
+     * Si un boost est déjà actif, il est remplacé (pas accumulé).
+     * 
+     * @return true si un item speed boost a été utilisé
+     */
+    public boolean useSpeedBoost() {
+        if (inventory.useItem(Inventory.ItemType.SPEED_BOOST)) {
+            speedBoost = 10;
+            speedBoostTimer = BOOST_DURATION; // Réinitialiser le timer à 5 secondes
+            // Mettre à jour la vitesse
+            movementHandler.setSpeed(baseSpeed + speedBoost);
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Utilise une potion de shield.
+     * Restaure la moitié du shield maximum.
+     * 
+     * @return true si une potion shield a été utilisée
+     */
+    public boolean useShieldPotion() {
+        if (inventory.useItem(Inventory.ItemType.SHIELD_POTION)) {
             int maxShield = combatHandler.getMaxShield();
             if (maxShield > 0) {
-                combatHandler.setShield(maxShield);
+                int restoreAmount = maxShield / 2;
+                int currentShield = combatHandler.getShield();
+                combatHandler.setShield(Math.min(maxShield, currentShield + restoreAmount));
                 return true;
             }
         }
@@ -114,19 +167,75 @@ public class Player extends Character {
     }
     
     /**
-     * Utilise un item de type heal.
-     * Restaure la santé du joueur.
+     * Utilise une potion de heal.
+     * Restaure +10 HP.
      * 
-     * @return true si un item heal a été utilisé
+     * @return true si une potion heal a été utilisée
      */
-    public boolean useHealItem() {
-        if (inventory.useItem(Inventory.ItemType.HEAL)) {
-            // Restaurer la santé à son maximum
+    public boolean useHealPotion() {
+        if (inventory.useItem(Inventory.ItemType.HEAL_POTION)) {
+            int currentHealth = combatHandler.getHealth();
             int maxHealth = combatHandler.getMaxHealth();
-            combatHandler.setHealth(maxHealth);
+            combatHandler.setHealth(Math.min(maxHealth, currentHealth + 10));
             return true;
         }
         return false;
+    }
+    
+    /**
+     * Met à jour le joueur, y compris les timers des boosts.
+     * 
+     * @param deltaTime Temps écoulé depuis la dernière frame
+     */
+    @Override
+    public void update(float deltaTime) {
+        super.update(deltaTime);
+        
+        // Mettre à jour les timers des boosts
+        if (damageBoostTimer > 0) {
+            damageBoostTimer -= deltaTime;
+            if (damageBoostTimer <= 0) {
+                // Le boost de dégâts a expiré
+                damageBoost = 0;
+            }
+        }
+        
+        if (speedBoostTimer > 0) {
+            speedBoostTimer -= deltaTime;
+            if (speedBoostTimer <= 0) {
+                // Le boost de vitesse a expiré
+                speedBoost = 0;
+                movementHandler.setSpeed(baseSpeed); // Restaurer la vitesse de base
+            }
+        }
+    }
+    
+    /**
+     * Retourne le bonus de dégâts actuel.
+     */
+    public int getDamageBoost() {
+        return damageBoost;
+    }
+    
+    /**
+     * Retourne le bonus de vitesse actuel.
+     */
+    public int getSpeedBoost() {
+        return speedBoost;
+    }
+    
+    /**
+     * Retourne le temps restant pour le boost de dégâts.
+     */
+    public float getDamageBoostTimer() {
+        return damageBoostTimer;
+    }
+    
+    /**
+     * Retourne le temps restant pour le boost de vitesse.
+     */
+    public float getSpeedBoostTimer() {
+        return speedBoostTimer;
     }
     
     /**
@@ -199,8 +308,6 @@ public class Player extends Character {
         loadHitboxFile("swordsman1-3/swordsman_attack_hitbox.json", "attack", 8); // 8 sprites par direction
         loadHitboxFile("swordsman1-3/swordsman_walk_attack_hitbox.json", "walk_attack", 6); // 6 sprites par direction
         loadHitboxFile("swordsman1-3/swordsman_run_attack_hitbox.json", "run_attack", 8); // 8 sprites par direction
-        
-        Gdx.app.log("Player", "Hitboxes d'attaque chargées : " + attackHitboxes.size() + " entrées");
     }
     
     /**
