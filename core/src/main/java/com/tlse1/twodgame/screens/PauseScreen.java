@@ -102,8 +102,6 @@ public class PauseScreen implements Screen {
         if (menuBackground == null || resumeButton == null || restartButton == null 
             || settingsButton == null || quitButton == null) {
             Gdx.app.error("PauseScreen", "Impossible de charger les sprites du menu");
-        } else {
-            Gdx.app.log("PauseScreen", "Sprites du menu chargés avec succès");
         }
     }
     
@@ -238,7 +236,6 @@ public class PauseScreen implements Screen {
         }
         
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-            Gdx.app.log("PauseScreen", "ESC pressé - Retour au jeu");
             // TODO: Reprendre la partie
         }
     }
@@ -248,23 +245,18 @@ public class PauseScreen implements Screen {
      */
     private void handleButtonClick(float x, float y) {
         if (resumeBounds.contains(x, y)) {
-            Gdx.app.log("PauseScreen", "Resume cliqué");
             // TODO: Reprendre la partie
             
         } else if (restartBounds.contains(x, y)) {
-            Gdx.app.log("PauseScreen", "Restart cliqué");
             game.setScreen(new GameScreen(game));
             
         } else if (settingsBounds.contains(x, y)) {
-            Gdx.app.log("PauseScreen", "Settings cliqué");
             game.setScreen(new SettingsScreen(game));
             
         } else if (inventoryBounds.contains(x, y)) {
-            Gdx.app.log("PauseScreen", "Inventory cliqué");
             // TODO: Ouvrir l'inventaire
             
         } else if (quitBounds.contains(x, y)) {
-            Gdx.app.log("PauseScreen", "Quit cliqué");
             Gdx.app.exit();
         }
     }

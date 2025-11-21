@@ -7,7 +7,6 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.viewport.StretchViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.tlse1.twodgame.TwoDGame;
@@ -34,7 +33,6 @@ public class GameScreen implements Screen {
     
     private TwoDGame game;
     private SpriteBatch batch;
-    private ShapeRenderer shapeRenderer;
     private OrthographicCamera camera;
     private OrthographicCamera uiCamera;
     private Viewport viewport;
@@ -42,6 +40,9 @@ public class GameScreen implements Screen {
     private Enemy enemy; // Ancien ennemi (vampire) - gardé pour compatibilité
     private ArrayList<Enemy> enemies; // Liste des ennemis (slimes, vampires, etc.)
     private ArrayList<Collectible> collectibles; // Liste des collectibles droppés
+    
+    // Liste des respawns de slimes en attente (avec délai de 10 secondes)
+    private ArrayList<PendingSlimeRespawn> pendingSlimeRespawns;
     
     // Map
     private JsonMapLoader mapLoader;
@@ -84,6 +85,30 @@ public class GameScreen implements Screen {
     private float lastPlayerX = -1f;
     private float lastPlayerY = -1f;
     
+    // Compteur de temps de jeu (en secondes) pour gérer les respawns
+    private float gameTime = 0f;
+    
+    /**
+     * Classe interne pour stocker les informations d'un respawn de slime en attente.
+     */
+    private static class PendingSlimeRespawn {
+        float deathTime;
+        int zoneId;
+        int level;
+        float initialX;
+        float initialY;
+        int respawnCount;
+        
+        PendingSlimeRespawn(float deathTime, int zoneId, int level, float initialX, float initialY, int respawnCount) {
+            this.deathTime = deathTime;
+            this.zoneId = zoneId;
+            this.level = level;
+            this.initialX = initialX;
+            this.initialY = initialY;
+            this.respawnCount = respawnCount;
+        }
+    }
+    
     public GameScreen(TwoDGame game) {
         this.game = game;
     }
@@ -91,7 +116,6 @@ public class GameScreen implements Screen {
     @Override
     public void show() {
         batch = new SpriteBatch();
-        shapeRenderer = new ShapeRenderer();
         
         // Initialiser la caméra et le viewport
         // Définir la zone de la map à afficher (180x140 pixels)
@@ -109,8 +133,6 @@ public class GameScreen implements Screen {
         uiCamera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         uiCamera.update();
         
-        Gdx.app.log("GameScreen", String.format("Caméra configurée: vue de %.0fx%.0f pixels de la map (étirée pour remplir l'écran)", 
-            mapViewWidth, mapViewHeight));
         
         // Charger la map
         mapLoader = new JsonMapLoader("map/map.json");
@@ -133,47 +155,90 @@ public class GameScreen implements Screen {
         
         // Initialiser la liste des ennemis
         enemies = new ArrayList<>();
+        pendingSlimeRespawns = new ArrayList<>();
         
         // Initialiser la liste des collectibles
         collectibles = new ArrayList<>();
         
-        // Spawn des slimes aux positions stratégiques
-        // Slime niveau 1
-        Slime slime1 = new Slime(64f, 448f, 1);
-        slime1.setTarget(player);
-        enemies.add(slime1);
-        Gdx.app.log("GameScreen", "Slime niveau 1 créé à (64, 448)");
+        // Spawn des slimes aux positions stratégiques avec zones assignées
+        // Calcul automatique du centre de chaque zone
+        // Slime niveau 1 - Zone 1
+        float[] zone1Center = mapLoader.getZoneCenter(1);
+        if (zone1Center != null) {
+            Slime slime1 = new Slime(zone1Center[0], zone1Center[1], 1);
+            slime1.setTarget(player);
+            slime1.setMapLoader(mapLoader);
+            slime1.setZoneId(1);
+            slime1.setInitialPosition(zone1Center[0], zone1Center[1]);
+            enemies.add(slime1);
+        } else {
+            Gdx.app.error("GameScreen", "Zone 1 vide ou introuvable !");
+        }
         
-        // Slime niveau 2
-        Slime slime2 = new Slime(160f, 192f, 2);
-        slime2.setTarget(player);
-        enemies.add(slime2);
-        Gdx.app.log("GameScreen", "Slime niveau 2 créé à (160, 192)");
+        // Slime niveau 2 - Zone 2
+        float[] zone2Center = mapLoader.getZoneCenter(2);
+        if (zone2Center != null) {
+            Slime slime2 = new Slime(zone2Center[0], zone2Center[1], 2);
+            slime2.setTarget(player);
+            slime2.setMapLoader(mapLoader);
+            slime2.setZoneId(2);
+            slime2.setInitialPosition(zone2Center[0], zone2Center[1]);
+            enemies.add(slime2);
+        } else {
+            Gdx.app.error("GameScreen", "Zone 2 vide ou introuvable !");
+        }
         
-        // Slime niveau 3
-        Slime slime3 = new Slime(64f, 352f, 3);
-        slime3.setTarget(player);
-        enemies.add(slime3);
-        Gdx.app.log("GameScreen", "Slime niveau 3 créé à (64, 352)");
+        // Slime niveau 3 - Zone 3
+        float[] zone3Center = mapLoader.getZoneCenter(3);
+        if (zone3Center != null) {
+            Slime slime3 = new Slime(zone3Center[0], zone3Center[1], 3);
+            slime3.setTarget(player);
+            slime3.setMapLoader(mapLoader);
+            slime3.setZoneId(3);
+            slime3.setInitialPosition(zone3Center[0], zone3Center[1]);
+            enemies.add(slime3);
+        } else {
+            Gdx.app.error("GameScreen", "Zone 3 vide ou introuvable !");
+        }
         
-        // Spawn des vampires aux positions stratégiques
-        // Vampire niveau 1
-        Vampire vampire1 = new Vampire(192f, 320f, 1);
-        vampire1.setTarget(player);
-        enemies.add(vampire1);
-        Gdx.app.log("GameScreen", "Vampire niveau 1 créé à (192, 320)");
+        // Vampire niveau 1 - Zone 4
+        float[] zone4Center = mapLoader.getZoneCenter(4);
+        if (zone4Center != null) {
+            Vampire vampire1 = new Vampire(zone4Center[0], zone4Center[1], 1);
+            vampire1.setTarget(player);
+            vampire1.setMapLoader(mapLoader);
+            vampire1.setZoneId(4);
+            vampire1.setInitialPosition(zone4Center[0], zone4Center[1]);
+            enemies.add(vampire1);
+        } else {
+            Gdx.app.error("GameScreen", "Zone 4 vide ou introuvable !");
+        }
         
-        // Vampire niveau 2
-        Vampire vampire2 = new Vampire(640f, 416f, 2);
-        vampire2.setTarget(player);
-        enemies.add(vampire2);
-        Gdx.app.log("GameScreen", "Vampire niveau 2 créé à (640, 416)");
+        // Vampire niveau 2 - Zone 5
+        float[] zone5Center = mapLoader.getZoneCenter(5);
+        if (zone5Center != null) {
+            Vampire vampire2 = new Vampire(zone5Center[0], zone5Center[1], 2);
+            vampire2.setTarget(player);
+            vampire2.setMapLoader(mapLoader);
+            vampire2.setZoneId(5);
+            vampire2.setInitialPosition(zone5Center[0], zone5Center[1]);
+            enemies.add(vampire2);
+        } else {
+            Gdx.app.error("GameScreen", "Zone 5 vide ou introuvable !");
+        }
         
-        // Vampire niveau 3
-        Vampire vampire3 = new Vampire(672f, 192f, 3);
-        vampire3.setTarget(player);
-        enemies.add(vampire3);
-        Gdx.app.log("GameScreen", "Vampire niveau 3 créé à (672, 192)");
+        // Vampire niveau 3 - Zone 6
+        float[] zone6Center = mapLoader.getZoneCenter(6);
+        if (zone6Center != null) {
+            Vampire vampire3 = new Vampire(zone6Center[0], zone6Center[1], 3);
+            vampire3.setTarget(player);
+            vampire3.setMapLoader(mapLoader);
+            vampire3.setZoneId(6);
+            vampire3.setInitialPosition(zone6Center[0], zone6Center[1]);
+            enemies.add(vampire3);
+        } else {
+            Gdx.app.error("GameScreen", "Zone 6 vide ou introuvable !");
+        }
         
         // Les collisions seront configurées après le premier rendu
         // quand on connaîtra les dimensions réelles des entités
@@ -201,6 +266,9 @@ public class GameScreen implements Screen {
     
     @Override
     public void render(float delta) {
+        // Mettre à jour le temps de jeu
+        gameTime += delta;
+        
         // Gérer l'input et le mouvement
         handleInput(delta);
         
@@ -211,7 +279,6 @@ public class GameScreen implements Screen {
         
         // Vérifier si le joueur est mort (ne logger qu'une seule fois)
         if (!player.isAlive() && !playerDeathLogged) {
-            Gdx.app.log("GameScreen", "Le joueur est mort !");
             playerDeathLogged = true;
             // Ici on pourrait afficher un écran de game over ou redémarrer
         }
@@ -258,6 +325,9 @@ public class GameScreen implements Screen {
         // Vérifier si des ennemis sont morts et drop des collectibles
         checkEnemyDeathsAndDropCollectibles();
         
+        // Vérifier et traiter les respawns de slimes en attente (délai de 10 secondes)
+        processPendingSlimeRespawns(delta);
+        
         // Nettoyer les collectibles collectés
         cleanupCollectedCollectibles();
         
@@ -284,9 +354,10 @@ public class GameScreen implements Screen {
         viewport.update((int)Gdx.graphics.getWidth(), (int)Gdx.graphics.getHeight());
         camera.update();
         
-        // Rendre la map en premier (en arrière-plan) - OrthogonalTiledMapRenderer gère son propre batch
+        // Rendre les layers de la map AVANT le joueur (ground, shadow, relief)
+        // OrthogonalTiledMapRenderer gère son propre batch
         if (mapLoader != null) {
-            mapLoader.render(camera);
+            mapLoader.renderBeforePlayer(camera);
         }
         
         // Dessiner le joueur et l'ennemi
@@ -296,7 +367,7 @@ public class GameScreen implements Screen {
         // Afficher le joueur même s'il est mort (pour voir l'animation de mort)
         player.render(batch);
         
-        // Afficher les ennemis
+        // Afficher les ennemis (même niveau de rendu que le joueur)
         if (enemies != null) {
             for (Enemy enemy : enemies) {
                 if (enemy != null) {
@@ -319,29 +390,25 @@ public class GameScreen implements Screen {
             }
         }
         
-        // Dessiner le character panel
-        renderCharacterPanel();
-        
-        // Action panel
-        renderActionPanel();
+        // Le character panel n'est plus rendu ici car panel_vide.png sert de fond pour les barres
+        // renderCharacterPanel();
         
         batch.end();
         
+        // Rendre les layers de la map APRÈS le joueur (structures, over_struct)
+        // OrthogonalTiledMapRenderer gère son propre batch
+        if (mapLoader != null) {
+            mapLoader.renderAfterPlayer(camera);
+        }
+        
+        // Dessiner l'inventaire (action panel) APRÈS tous les layers de la map
+        // Utiliser la caméra UI pour qu'il soit toujours visible
+        batch.setProjectionMatrix(uiCamera.combined);
+        batch.begin();
+        renderActionPanel();
+        batch.end();
+        
         // Dessiner les hitboxes pour le débogage (rectangles rouges)
-        drawHitboxes();
-        
-        // Dessiner les zones de collision de la map (rectangles rouges)
-        drawCollisionDebug();
-        
-        // Dessiner les structures de la map (rectangles verts)
-        drawStructuresDebug();
-        
-        // Dessiner les reliefs de la map (rectangles bleus)
-        drawReliefDebug();
-        
-        // Dessiner les over_struct de la map (rectangles jaunes)
-        drawOverStructDebug();
-        
         // Dessiner les barres de santé et shield (en coordonnées écran)
         if (player != null) {
             float screenHeight = Gdx.graphics.getHeight();
@@ -374,370 +441,6 @@ public class GameScreen implements Screen {
     /**
      * Dessine les hitboxes du joueur et des ennemis pour le débogage.
      */
-    private void drawHitboxes() {
-        if (shapeRenderer == null) {
-            return;
-        }
-        
-        // Utiliser la projection de la caméra pour dessiner dans le monde du jeu
-        shapeRenderer.setProjectionMatrix(camera.combined);
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-        
-        // Dessiner les hitboxes de collision en rouge
-        shapeRenderer.setColor(1f, 0f, 0f, 1f); // Rouge
-        
-        // Dessiner la hitbox du joueur (20x27, centrée)
-        if (player != null && player.getWidth() > 0 && player.getHeight() > 0) {
-            float playerHitboxX = player.getHitboxX();
-            float playerHitboxY = player.getHitboxY();
-            float playerHitboxWidth = player.getHitboxWidth();
-            float playerHitboxHeight = player.getHitboxHeight();
-            
-            // Dessiner un rectangle rouge pour la hitbox de collision
-            shapeRenderer.rect(playerHitboxX, playerHitboxY, playerHitboxWidth, playerHitboxHeight);
-        }
-        
-        // Dessiner les hitboxes des ennemis (17x16 pour slimes, 30x30 pour vampires, centrées)
-        if (enemies != null) {
-            for (Enemy enemy : enemies) {
-                if (enemy != null && enemy.getWidth() > 0 && enemy.getHeight() > 0) {
-                    float enemyHitboxX = enemy.getHitboxX();
-                    float enemyHitboxY = enemy.getHitboxY();
-                    float enemyHitboxWidth = enemy.getHitboxWidth();
-                    float enemyHitboxHeight = enemy.getHitboxHeight();
-                    
-                    // Dessiner un rectangle rouge pour la hitbox de collision
-                    shapeRenderer.rect(enemyHitboxX, enemyHitboxY, enemyHitboxWidth, enemyHitboxHeight);
-                }
-            }
-        }
-        
-        // Dessiner la range d'attaque du joueur en vert (25x10 pixels, collée à l'extrémité de la hitbox rouge)
-        shapeRenderer.setColor(0f, 1f, 0f, 1f); // Vert
-        
-        if (player != null && player.isAttacking()) {
-            Direction attackDirection = player.getCurrentDirection();
-            
-            // Utiliser la hitbox de collision du joueur (rouge) pour positionner la range
-            float playerHitboxX = player.getHitboxX();
-            float playerHitboxY = player.getHitboxY();
-            float playerHitboxWidth = player.getHitboxWidth();
-            float playerHitboxHeight = player.getHitboxHeight();
-            float playerHitboxCenterX = playerHitboxX + playerHitboxWidth / 2f;
-            float playerHitboxCenterY = playerHitboxY + playerHitboxHeight / 2f;
-            
-            // Range d'attaque : 25x10 pixels
-            float attackRangeWidth = 25f;
-            float attackRangeHeight = 10f;
-            
-            float attackRangeX, attackRangeY;
-            float finalWidth, finalHeight;
-            
-            // Positionner la range collée à l'extrémité de la hitbox selon la direction
-            switch (attackDirection) {
-                case DOWN:
-                    // Range en bas de la hitbox (25x10, horizontale)
-                    attackRangeX = playerHitboxCenterX - attackRangeWidth / 2f;
-                    attackRangeY = playerHitboxY - attackRangeHeight; // Collée en bas
-                    finalWidth = attackRangeWidth;
-                    finalHeight = attackRangeHeight;
-                    break;
-                case UP:
-                    // Range en haut de la hitbox (25x10, horizontale)
-                    attackRangeX = playerHitboxCenterX - attackRangeWidth / 2f;
-                    attackRangeY = playerHitboxY + playerHitboxHeight; // Collée en haut
-                    finalWidth = attackRangeWidth;
-                    finalHeight = attackRangeHeight;
-                    break;
-                case SIDE_LEFT:
-                    // Range à gauche de la hitbox (10x25, verticale)
-                    attackRangeX = playerHitboxX - attackRangeHeight; // Collée à gauche
-                    attackRangeY = playerHitboxCenterY - attackRangeWidth / 2f;
-                    finalWidth = attackRangeHeight; // 10
-                    finalHeight = attackRangeWidth; // 25
-                    break;
-                case SIDE:
-                    // Range à droite de la hitbox (10x25, verticale)
-                    attackRangeX = playerHitboxX + playerHitboxWidth; // Collée à droite
-                    attackRangeY = playerHitboxCenterY - attackRangeWidth / 2f;
-                    finalWidth = attackRangeHeight; // 10
-                    finalHeight = attackRangeWidth; // 25
-                    break;
-                default:
-                    attackRangeX = playerHitboxCenterX - attackRangeWidth / 2f;
-                    attackRangeY = playerHitboxCenterY - attackRangeHeight / 2f;
-                    finalWidth = attackRangeWidth;
-                    finalHeight = attackRangeHeight;
-                    break;
-            }
-            
-            // Dessiner un rectangle vert pour la range d'attaque
-            shapeRenderer.rect(attackRangeX, attackRangeY, finalWidth, finalHeight);
-        }
-        
-        shapeRenderer.end();
-    }
-    
-    /**
-     * Dessine les zones de collision de la map avec des rectangles rouges pour le débogage.
-     */
-    private void drawCollisionDebug() {
-        if (shapeRenderer == null || mapLoader == null) {
-            return;
-        }
-        
-        // Récupérer le TiledMap depuis le mapLoader
-        com.badlogic.gdx.maps.tiled.TiledMap tiledMap = mapLoader.getTiledMap();
-        if (tiledMap == null) {
-            return;
-        }
-        
-        // Récupérer le layer "collisions"
-        com.badlogic.gdx.maps.tiled.TiledMapTileLayer collisionsLayer = 
-            (com.badlogic.gdx.maps.tiled.TiledMapTileLayer) tiledMap.getLayers().get("collisions");
-        
-        if (collisionsLayer == null) {
-            return;
-        }
-        
-        // Utiliser la projection de la caméra pour dessiner dans le monde du jeu
-        shapeRenderer.setProjectionMatrix(camera.combined);
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-        shapeRenderer.setColor(1f, 0f, 0f, 1f); // Rouge
-        
-        // Récupérer les dimensions des tiles
-        int tileWidth = mapLoader.getTileWidth();
-        int tileHeight = mapLoader.getTileHeight();
-        int mapWidth = mapLoader.getMapWidth();
-        int mapHeight = mapLoader.getMapHeight();
-        
-        // Calculer les bounds visibles de la caméra pour optimiser le rendu
-        float camLeft = camera.position.x - camera.viewportWidth / 2f;
-        float camRight = camera.position.x + camera.viewportWidth / 2f;
-        float camBottom = camera.position.y - camera.viewportHeight / 2f;
-        float camTop = camera.position.y + camera.viewportHeight / 2f;
-        
-        // Calculer les indices de tiles visibles (avec une marge pour éviter les coupures)
-        int startX = Math.max(0, (int)(camLeft / tileWidth) - 1);
-        int endX = Math.min(mapWidth - 1, (int)(camRight / tileWidth) + 1);
-        int startY = Math.max(0, (int)(camBottom / tileHeight) - 1);
-        int endY = Math.min(mapHeight - 1, (int)(camTop / tileHeight) + 1);
-        
-        // Parcourir uniquement les tiles visibles à l'écran
-        for (int y = startY; y <= endY; y++) {
-            for (int x = startX; x <= endX; x++) {
-                com.badlogic.gdx.maps.tiled.TiledMapTileLayer.Cell cell = collisionsLayer.getCell(x, y);
-                
-                // Si la tile existe et n'est pas vide, c'est une zone de collision
-                if (cell != null && cell.getTile() != null) {
-                    // Calculer la position en pixels (coin bas-gauche de la tile)
-                    float pixelX = x * tileWidth;
-                    float pixelY = y * tileHeight;
-                    
-                    // Dessiner un rectangle rouge autour de la tile de collision
-                    shapeRenderer.rect(pixelX, pixelY, tileWidth, tileHeight);
-                }
-            }
-        }
-        
-        shapeRenderer.end();
-    }
-    
-    /**
-     * Dessine les structures de la map avec des rectangles verts pour le débogage.
-     */
-    private void drawStructuresDebug() {
-        if (shapeRenderer == null || mapLoader == null) {
-            return;
-        }
-        
-        // Récupérer le TiledMap depuis le mapLoader
-        com.badlogic.gdx.maps.tiled.TiledMap tiledMap = mapLoader.getTiledMap();
-        if (tiledMap == null) {
-            return;
-        }
-        
-        // Récupérer le layer "structures"
-        com.badlogic.gdx.maps.tiled.TiledMapTileLayer structuresLayer = 
-            (com.badlogic.gdx.maps.tiled.TiledMapTileLayer) tiledMap.getLayers().get("structures");
-        
-        if (structuresLayer == null) {
-            return;
-        }
-        
-        // Utiliser la projection de la caméra pour dessiner dans le monde du jeu
-        shapeRenderer.setProjectionMatrix(camera.combined);
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-        shapeRenderer.setColor(0f, 1f, 0f, 1f); // Vert
-        
-        // Récupérer les dimensions des tiles
-        int tileWidth = mapLoader.getTileWidth();
-        int tileHeight = mapLoader.getTileHeight();
-        int mapWidth = mapLoader.getMapWidth();
-        int mapHeight = mapLoader.getMapHeight();
-        
-        // Calculer les bounds visibles de la caméra pour optimiser le rendu
-        float camLeft = camera.position.x - camera.viewportWidth / 2f;
-        float camRight = camera.position.x + camera.viewportWidth / 2f;
-        float camBottom = camera.position.y - camera.viewportHeight / 2f;
-        float camTop = camera.position.y + camera.viewportHeight / 2f;
-        
-        // Calculer les indices de tiles visibles (avec une marge pour éviter les coupures)
-        int startX = Math.max(0, (int)(camLeft / tileWidth) - 1);
-        int endX = Math.min(mapWidth - 1, (int)(camRight / tileWidth) + 1);
-        int startY = Math.max(0, (int)(camBottom / tileHeight) - 1);
-        int endY = Math.min(mapHeight - 1, (int)(camTop / tileHeight) + 1);
-        
-        // Parcourir uniquement les tiles visibles à l'écran
-        for (int y = startY; y <= endY; y++) {
-            for (int x = startX; x <= endX; x++) {
-                com.badlogic.gdx.maps.tiled.TiledMapTileLayer.Cell cell = structuresLayer.getCell(x, y);
-                
-                // Si la tile existe et n'est pas vide, c'est une structure
-                if (cell != null && cell.getTile() != null) {
-                    // Calculer la position en pixels (coin bas-gauche de la tile)
-                    float pixelX = x * tileWidth;
-                    float pixelY = y * tileHeight;
-                    
-                    // Dessiner un rectangle vert autour de la tile de structure
-                    shapeRenderer.rect(pixelX, pixelY, tileWidth, tileHeight);
-                }
-            }
-        }
-        
-        shapeRenderer.end();
-    }
-    
-    /**
-     * Dessine les reliefs de la map avec des rectangles bleus pour le débogage.
-     */
-    private void drawReliefDebug() {
-        if (shapeRenderer == null || mapLoader == null) {
-            return;
-        }
-        
-        // Récupérer le TiledMap depuis le mapLoader
-        com.badlogic.gdx.maps.tiled.TiledMap tiledMap = mapLoader.getTiledMap();
-        if (tiledMap == null) {
-            return;
-        }
-        
-        // Récupérer le layer "relief"
-        com.badlogic.gdx.maps.tiled.TiledMapTileLayer reliefLayer = 
-            (com.badlogic.gdx.maps.tiled.TiledMapTileLayer) tiledMap.getLayers().get("relief");
-        
-        if (reliefLayer == null) {
-            return;
-        }
-        
-        // Utiliser la projection de la caméra pour dessiner dans le monde du jeu
-        shapeRenderer.setProjectionMatrix(camera.combined);
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-        shapeRenderer.setColor(0f, 0f, 1f, 1f); // Bleu
-        
-        // Récupérer les dimensions des tiles
-        int tileWidth = mapLoader.getTileWidth();
-        int tileHeight = mapLoader.getTileHeight();
-        int mapWidth = mapLoader.getMapWidth();
-        int mapHeight = mapLoader.getMapHeight();
-        
-        // Calculer les bounds visibles de la caméra pour optimiser le rendu
-        float camLeft = camera.position.x - camera.viewportWidth / 2f;
-        float camRight = camera.position.x + camera.viewportWidth / 2f;
-        float camBottom = camera.position.y - camera.viewportHeight / 2f;
-        float camTop = camera.position.y + camera.viewportHeight / 2f;
-        
-        // Calculer les indices de tiles visibles (avec une marge pour éviter les coupures)
-        int startX = Math.max(0, (int)(camLeft / tileWidth) - 1);
-        int endX = Math.min(mapWidth - 1, (int)(camRight / tileWidth) + 1);
-        int startY = Math.max(0, (int)(camBottom / tileHeight) - 1);
-        int endY = Math.min(mapHeight - 1, (int)(camTop / tileHeight) + 1);
-        
-        // Parcourir uniquement les tiles visibles à l'écran
-        for (int y = startY; y <= endY; y++) {
-            for (int x = startX; x <= endX; x++) {
-                com.badlogic.gdx.maps.tiled.TiledMapTileLayer.Cell cell = reliefLayer.getCell(x, y);
-                
-                // Si la tile existe et n'est pas vide, c'est un relief
-                if (cell != null && cell.getTile() != null) {
-                    // Calculer la position en pixels (coin bas-gauche de la tile)
-                    float pixelX = x * tileWidth;
-                    float pixelY = y * tileHeight;
-                    
-                    // Dessiner un rectangle bleu autour de la tile de relief
-                    shapeRenderer.rect(pixelX, pixelY, tileWidth, tileHeight);
-                }
-            }
-        }
-        
-        shapeRenderer.end();
-    }
-    
-    /**
-     * Dessine les over_struct de la map avec des rectangles jaunes pour le débogage.
-     */
-    private void drawOverStructDebug() {
-        if (shapeRenderer == null || mapLoader == null) {
-            return;
-        }
-        
-        // Récupérer le TiledMap depuis le mapLoader
-        com.badlogic.gdx.maps.tiled.TiledMap tiledMap = mapLoader.getTiledMap();
-        if (tiledMap == null) {
-            return;
-        }
-        
-        // Récupérer le layer "over_struct"
-        com.badlogic.gdx.maps.tiled.TiledMapTileLayer overStructLayer = 
-            (com.badlogic.gdx.maps.tiled.TiledMapTileLayer) tiledMap.getLayers().get("over_struct");
-        
-        if (overStructLayer == null) {
-            return;
-        }
-        
-        // Utiliser la projection de la caméra pour dessiner dans le monde du jeu
-        shapeRenderer.setProjectionMatrix(camera.combined);
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-        shapeRenderer.setColor(1f, 1f, 0f, 1f); // Jaune
-        
-        // Récupérer les dimensions des tiles
-        int tileWidth = mapLoader.getTileWidth();
-        int tileHeight = mapLoader.getTileHeight();
-        int mapWidth = mapLoader.getMapWidth();
-        int mapHeight = mapLoader.getMapHeight();
-        
-        // Calculer les bounds visibles de la caméra pour optimiser le rendu
-        float camLeft = camera.position.x - camera.viewportWidth / 2f;
-        float camRight = camera.position.x + camera.viewportWidth / 2f;
-        float camBottom = camera.position.y - camera.viewportHeight / 2f;
-        float camTop = camera.position.y + camera.viewportHeight / 2f;
-        
-        // Calculer les indices de tiles visibles (avec une marge pour éviter les coupures)
-        int startX = Math.max(0, (int)(camLeft / tileWidth) - 1);
-        int endX = Math.min(mapWidth - 1, (int)(camRight / tileWidth) + 1);
-        int startY = Math.max(0, (int)(camBottom / tileHeight) - 1);
-        int endY = Math.min(mapHeight - 1, (int)(camTop / tileHeight) + 1);
-        
-        // Parcourir uniquement les tiles visibles à l'écran
-        for (int y = startY; y <= endY; y++) {
-            for (int x = startX; x <= endX; x++) {
-                com.badlogic.gdx.maps.tiled.TiledMapTileLayer.Cell cell = overStructLayer.getCell(x, y);
-                
-                // Si la tile existe et n'est pas vide, c'est une over_struct
-                if (cell != null && cell.getTile() != null) {
-                    // Calculer la position en pixels (coin bas-gauche de la tile)
-                    float pixelX = x * tileWidth;
-                    float pixelY = y * tileHeight;
-                    
-                    // Dessiner un rectangle jaune autour de la tile d'over_struct
-                    shapeRenderer.rect(pixelX, pixelY, tileWidth, tileHeight);
-                }
-            }
-        }
-        
-        shapeRenderer.end();
-    }
-    
     /**
      * Gère l'input clavier et met à jour la position et la direction du personnage.
      */
@@ -768,10 +471,12 @@ public class GameScreen implements Screen {
         if (moveDirection != null) {
             // Vérifier si le mouvement causerait une collision avec un ennemi
             if (canPlayerMove(moveDirection, deltaTime, isRunning)) {
+                // Pas de collision avec un ennemi, bouger normalement
                 player.getMovementHandler().move(moveDirection, deltaTime, isRunning);
             } else {
-                // Collision avec un ennemi, ne pas bouger
-                player.getMovementHandler().stop();
+                // Collision avec un ennemi, mais on appelle quand même move() pour permettre le changement de direction
+                // Le MovementHandler gérera le fait que le mouvement est bloqué
+                player.getMovementHandler().move(moveDirection, deltaTime, isRunning);
             }
         } else {
             player.getMovementHandler().stop();
@@ -939,13 +644,11 @@ public class GameScreen implements Screen {
         // Si l'ennemi est mort et qu'on n'a pas encore donné les items
         if (!enemyDeathLooted) {
             // L'ennemi est mort, ajouter des items à l'inventaire
-            // Ajouter aléatoirement des items (shield ou heal)
+            // Ajouter aléatoirement des items (shield potion ou heal potion)
             if (Math.random() < 0.5) {
-                player.getInventory().addItem(Inventory.ItemType.HEAL);
-                Gdx.app.log("GameScreen", "Item HEAL ajouté à l'inventaire !");
+                player.getInventory().addItem(Inventory.ItemType.HEAL_POTION);
             } else {
-                player.getInventory().addItem(Inventory.ItemType.SHIELD);
-                Gdx.app.log("GameScreen", "Item SHIELD ajouté à l'inventaire !");
+                player.getInventory().addItem(Inventory.ItemType.SHIELD_POTION);
             }
             
             enemyDeathLooted = true;
@@ -1234,6 +937,13 @@ public class GameScreen implements Screen {
         // Reprendre si nécessaire
     }
     
+    /**
+     * Méthode appelée par GameSettingsScreen pour reprendre le jeu.
+     */
+    public void resumeGame() {
+        // Reprendre le jeu (méthode appelée depuis GameSettingsScreen)
+    }
+    
     @Override
     public void hide() {
         // Appelé quand l'écran devient invisible
@@ -1252,9 +962,7 @@ public class GameScreen implements Screen {
             return;
         }
         
-        // Utiliser la caméra UI pour le rendu en coordonnées écran
-        batch.setProjectionMatrix(uiCamera.combined);
-        
+        // La caméra UI est déjà configurée depuis l'appelant
         float screenWidth = Gdx.graphics.getWidth();
         float screenHeight = Gdx.graphics.getHeight();
         
@@ -1429,11 +1137,72 @@ public class GameScreen implements Screen {
                 Collectible collectible = new Collectible(enemyX, enemyY, itemType, actionPanelMapping);
                 collectibles.add(collectible);
                 
-                Gdx.app.log("GameScreen", "Collectible droppé: " + itemType + " à (" + enemyX + ", " + enemyY + ")");
+                // Pour les slimes uniquement : respawn jusqu'à 2 fois (3 slimes au total par zone)
+                // avec un délai de 10 secondes
+                if (enemy instanceof Slime && enemy.getRespawnCount() < 2) {
+                    Slime deadSlime = (Slime) enemy;
+                    int zoneId = deadSlime.getZoneId();
+                    int level = deadSlime.getLevel();
+                    float initialX = deadSlime.getInitialX();
+                    float initialY = deadSlime.getInitialY();
+                    
+                    // Ajouter à la liste des respawns en attente (sera créé après 10 secondes)
+                    PendingSlimeRespawn pendingRespawn = new PendingSlimeRespawn(
+                        gameTime, zoneId, level, initialX, initialY, deadSlime.getRespawnCount() + 1);
+                    pendingSlimeRespawns.add(pendingRespawn);
+                }
                 
-                // Retirer l'ennemi de la liste pour éviter de drop plusieurs fois
+                // Retirer l'ennemi mort de la liste
                 iterator.remove();
                 break; // Ne traiter qu'un ennemi par frame
+            }
+        }
+        
+    }
+    
+    /**
+     * Vérifie et traite les respawns de slimes en attente.
+     * Crée un nouveau slime si 10 secondes se sont écoulées depuis la mort.
+     *
+     * @param delta Temps écoulé depuis la dernière frame
+     */
+    private void processPendingSlimeRespawns(float delta) {
+        if (pendingSlimeRespawns == null || pendingSlimeRespawns.isEmpty()) {
+            return;
+        }
+        
+        float respawnDelay = 10f; // Délai de 10 secondes
+        
+        // Utiliser un Iterator pour éviter les problèmes de modification de liste
+        java.util.Iterator<PendingSlimeRespawn> iterator = pendingSlimeRespawns.iterator();
+        while (iterator.hasNext()) {
+            PendingSlimeRespawn pending = iterator.next();
+            float elapsedTime = gameTime - pending.deathTime;
+            
+            // Si 10 secondes se sont écoulées, créer le nouveau slime
+            if (elapsedTime >= respawnDelay) {
+                // Créer un nouveau slime à la position initiale
+                Slime newSlime = new Slime(pending.initialX, pending.initialY, pending.level);
+                newSlime.setTarget(player);
+                newSlime.setMapLoader(mapLoader);
+                newSlime.setZoneId(pending.zoneId);
+                newSlime.setInitialPosition(pending.initialX, pending.initialY);
+                newSlime.setRespawnCount(pending.respawnCount);
+                
+                // Ajouter le nouveau slime à la liste
+                enemies.add(newSlime);
+                
+                // Initialiser les collisions pour le nouveau slime
+                if (mapLoader != null && newSlime.getHitboxWidth() > 0 && newSlime.getHitboxHeight() > 0) {
+                    float spriteWidth = 16f; // Slimes : 16x16 pixels
+                    float spriteHeight = 16f;
+                    CollisionHandler enemyCollision = new CollisionHandler(
+                        mapLoader, newSlime.getHitboxWidth(), newSlime.getHitboxHeight(), spriteWidth, spriteHeight);
+                    newSlime.getMovementHandler().setCollisionHandler(enemyCollision);
+                }
+                
+                // Retirer de la liste des respawns en attente
+                iterator.remove();
             }
         }
     }
@@ -1460,10 +1229,7 @@ public class GameScreen implements Screen {
                     // Ajouter à l'inventaire
                     if (player.getInventory().addItem(collectible.getItemType())) {
                         collectible.collect();
-                        Gdx.app.log("GameScreen", "Collectible ramassé: " + collectible.getItemType());
                         iterator.remove(); // Retirer de la liste
-                    } else {
-                        Gdx.app.log("GameScreen", "Inventaire plein, impossible de ramasser le collectible");
                     }
                 }
             }
@@ -1497,27 +1263,33 @@ public class GameScreen implements Screen {
             CollisionHandler playerCollision = new CollisionHandler(
                 mapLoader, player.getHitboxWidth(), player.getHitboxHeight(), spriteWidth, spriteHeight);
             player.getMovementHandler().setCollisionHandler(playerCollision);
-            Gdx.app.log("GameScreen", String.format("Collisions initialisées pour le joueur (hitbox: %.1fx%.1f pixels, sprite: %.1fx%.1f) à la position (%.1f, %.1f)", 
-                player.getHitboxWidth(), player.getHitboxHeight(), spriteWidth, spriteHeight, player.getX(), player.getY()));
-            
-            // Vérifier si la position initiale est valide (en utilisant la position du sprite)
-            if (playerCollision != null) {
-                boolean isValid = playerCollision.isValidPosition(player.getX(), player.getY());
-                Gdx.app.log("GameScreen", String.format("Position initiale du joueur valide : %s", isValid));
-            }
         } else {
-            Gdx.app.log("GameScreen", "Impossible d'initialiser les collisions : hitbox du joueur invalide");
+            Gdx.app.error("GameScreen", "Impossible d'initialiser les collisions : hitbox du joueur invalide");
         }
         
-        // Configurer les collisions pour les ennemis (slimes) en utilisant leur hitbox
+        // Configurer les collisions pour les ennemis en utilisant leur hitbox et leurs dimensions de sprite
         if (enemies != null) {
             for (Enemy enemy : enemies) {
                 if (enemy != null && enemy.getHitboxWidth() > 0 && enemy.getHitboxHeight() > 0) {
+                    // Déterminer les dimensions du sprite selon le type d'ennemi
+                    float spriteWidth, spriteHeight;
+                    if (enemy instanceof Slime) {
+                        // Slimes : scale ~0.59, taille cible ~16 pixels
+                        spriteWidth = 16f;
+                        spriteHeight = 16f;
+                    } else if (enemy instanceof Vampire) {
+                        // Vampires : scale 0.5, taille cible 32 pixels
+                        spriteWidth = 32f;
+                        spriteHeight = 32f;
+                    } else {
+                        // Par défaut, utiliser les dimensions visuelles
+                        spriteWidth = enemy.getWidth();
+                        spriteHeight = enemy.getHeight();
+                    }
+                    
                     CollisionHandler enemyCollision = new CollisionHandler(
-                        mapLoader, enemy.getHitboxWidth(), enemy.getHitboxHeight());
+                        mapLoader, enemy.getHitboxWidth(), enemy.getHitboxHeight(), spriteWidth, spriteHeight);
                     enemy.getMovementHandler().setCollisionHandler(enemyCollision);
-                    Gdx.app.log("GameScreen", String.format("Collisions initialisées pour un ennemi (hitbox: %.1fx%.1f pixels)", 
-                        enemy.getHitboxWidth(), enemy.getHitboxHeight()));
                 }
             }
         }
@@ -1543,9 +1315,6 @@ public class GameScreen implements Screen {
         }
         if (batch != null) {
             batch.dispose();
-        }
-        if (shapeRenderer != null) {
-            shapeRenderer.dispose();
         }
         if (healthBar != null) {
             healthBar.dispose();

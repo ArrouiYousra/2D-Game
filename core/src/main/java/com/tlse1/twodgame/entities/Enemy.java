@@ -31,8 +31,21 @@ public class Enemy extends Character {
     private float attackCooldown = 0f;
     private float attackCooldownTime = 2.0f;
     
-    // Référence à la map pour créer des projectiles (peut être null)
+    // Référence à la map pour vérifier les zones (peut être null)
     protected JsonMapLoader mapLoader;
+    
+    // Zone assignée à cet ennemi (1-6)
+    private int zoneId = 0; // 0 = pas de zone assignée
+    
+    // Position initiale (spawn point) pour retour après désagro
+    private float initialX;
+    private float initialY;
+    
+    // État d'agro (si l'ennemi est actuellement en train de poursuivre le joueur)
+    private boolean isAggroed = false;
+    
+    // Compteur de respawns (pour les slimes uniquement, max 3 respawns = 4 slimes au total)
+    private int respawnCount = 0;
     
     
     /**
@@ -53,6 +66,10 @@ public class Enemy extends Character {
         this.speed = 100f;
         this.target = null;
         this.attackCooldown = 0f;
+        this.initialX = x;
+        this.initialY = y;
+        this.zoneId = 0;
+        this.isAggroed = false;
         
         // Configurer la santé de l'ennemi (100 HP)
         combatHandler.setMaxHealth(100);
@@ -146,6 +163,7 @@ public class Enemy extends Character {
             animationHandler.setCurrentDirection(Direction.DOWN);
             animationHandler.setMoving(false);
             animationHandler.setRunning(false);
+            isAggroed = false;
             return;
         }
         
@@ -160,9 +178,7 @@ public class Enemy extends Character {
             // L'ennemi n'a pas encore de dimensions, attendre
             // Log pour déboguer
             if (this instanceof Vampire) {
-                Vampire v = (Vampire) this;
-                Gdx.app.log("Enemy", String.format("Vampire niveau %d: dimensions pas encore initialisées (%.1fx%.1f)", 
-                    v.getLevel(), getWidth(), getHeight()));
+                // Dimensions pas encore initialisées
             }
             animationHandler.setCurrentDirection(Direction.DOWN);
             animationHandler.setMoving(false);
@@ -176,6 +192,50 @@ public class Enemy extends Character {
             animationHandler.setMoving(false);
             animationHandler.setRunning(false);
             return;
+        }
+        
+        // GESTION DES ZONES : Si l'ennemi a une zone assignée, vérifier si le joueur est dans cette zone
+        boolean playerInZone = false;
+        if (zoneId > 0 && mapLoader != null) {
+            // Utiliser le centre du joueur pour vérifier s'il est dans la zone (plus fiable)
+            float playerCenterX = target.getX() + target.getWidth() / 2f;
+            float playerCenterY = target.getY() + target.getHeight() / 2f;
+            
+            // isInZone convertit les pixels en tiles, donc on peut passer directement le centre
+            // La conversion (int)(x / tileWidth) trouvera la bonne tile
+            playerInZone = mapLoader.isInZone(playerCenterX, playerCenterY, zoneId);
+            
+            if (!playerInZone && isAggroed) {
+                // Le joueur est sorti de la zone et l'ennemi était aggro : désagro et retourner à la position initiale
+                isAggroed = false;
+                returnToInitialPosition(deltaTime);
+                return;
+            } else if (!playerInZone && !isAggroed) {
+                // Le joueur n'est pas dans la zone et l'ennemi n'est pas aggro
+                // Vérifier si l'ennemi est déjà à sa position initiale
+                float currentX = getX();
+                float currentY = getY();
+                float dx = initialX - currentX;
+                float dy = initialY - currentY;
+                float distance = (float) Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < 5f) {
+                    // L'ennemi est déjà à sa position initiale : rester en idle
+                    setX(initialX);
+                    setY(initialY);
+                    animationHandler.setCurrentDirection(Direction.DOWN);
+                    animationHandler.setMoving(false);
+                    animationHandler.setRunning(false);
+                } else {
+                    // L'ennemi n'est pas encore à sa position initiale : continuer à y retourner
+                    returnToInitialPosition(deltaTime);
+                }
+                return;
+            } else if (playerInZone && !isAggroed) {
+                // Le joueur entre dans la zone : aggro
+                isAggroed = true;
+            }
+            // Si playerInZone && isAggroed : continuer la poursuite normale (ne pas return, continuer le code)
         }
         
         // Calculer la distance au joueur (centre à centre)
@@ -192,12 +252,27 @@ public class Enemy extends Character {
         float dy = targetCenterY - enemyCenterY;
         float distance = (float) Math.sqrt(dx * dx + dy * dy);
         
-        // Si le joueur est hors de portée de détection, rester en idle DOWN
-        if (distance > detectionRange) {
-            animationHandler.setCurrentDirection(Direction.DOWN);
-            animationHandler.setMoving(false);
-            animationHandler.setRunning(false);
-            return;
+        // Si l'ennemi a une zone assignée, ignorer la distance de détection et se baser uniquement sur la zone
+        // Sinon, utiliser la distance de détection normale
+        if (zoneId > 0) {
+            // Si l'ennemi a une zone mais le joueur n'est pas dedans, on ne devrait pas arriver ici
+            // (normalement on a déjà return plus haut), mais on vérifie quand même par sécurité
+            if (!playerInZone) {
+                animationHandler.setCurrentDirection(Direction.DOWN);
+                animationHandler.setMoving(false);
+                animationHandler.setRunning(false);
+                isAggroed = false;
+                return;
+            }
+        } else {
+            // Pas de zone assignée : utiliser la distance de détection normale
+            if (distance > detectionRange) {
+                animationHandler.setCurrentDirection(Direction.DOWN);
+                animationHandler.setMoving(false);
+                animationHandler.setRunning(false);
+                isAggroed = false;
+                return;
+            }
         }
         
         // Utiliser la hitbox fixe pour tous les ennemis (slimes et vampires)
@@ -244,10 +319,12 @@ public class Enemy extends Character {
             animationHandler.setMoving(false);
             animationHandler.setRunning(false);
             
-            // Infliger des dégâts au joueur
+            // Tous les ennemis (vampires et slimes) attaquent au corps à corps
+            // Infliger des dégâts au joueur selon le type d'ennemi et son niveau
             if (target instanceof Player) {
                 Player player = (Player) target;
-                player.takeDamage(1); // 1 dégât par attaque
+                int damage = getAttackDamage();
+                player.takeDamage(damage);
             }
         } else if (hitboxesTouching) {
             // Les hitboxes se touchent vraiment mais en cooldown : s'arrêter et regarder vers le joueur
@@ -381,7 +458,42 @@ public class Enemy extends Character {
     }
     
     /**
-     * Définit la référence à la map pour créer des projectiles.
+     * Retourne à la position initiale en mode run.
+     * Appelé quand le joueur sort de la zone de l'ennemi.
+     * 
+     * @param deltaTime Temps écoulé depuis la dernière frame
+     */
+    private void returnToInitialPosition(float deltaTime) {
+        float currentX = getX();
+        float currentY = getY();
+        
+        // Calculer la direction vers la position initiale
+        float dx = initialX - currentX;
+        float dy = initialY - currentY;
+        float distance = (float) Math.sqrt(dx * dx + dy * dy);
+        
+        // Si on est déjà proche de la position initiale (moins de 5 pixels), s'arrêter
+        if (distance < 5f) {
+            setX(initialX);
+            setY(initialY);
+            animationHandler.setCurrentDirection(Direction.DOWN);
+            animationHandler.setMoving(false);
+            animationHandler.setRunning(false);
+            return;
+        }
+        
+        // Calculer la direction vers la position initiale
+        Direction directionToInitial = calculateDirectionToTarget(dx, dy);
+        
+        // Se déplacer vers la position initiale en mode run
+        movementHandler.move(directionToInitial, deltaTime, true); // true = run
+        animationHandler.setCurrentDirection(directionToInitial);
+        animationHandler.setRunning(true);
+        animationHandler.setMoving(true);
+    }
+    
+    /**
+     * Définit la référence à la map pour vérifier les zones.
      * 
      * @param mapLoader Référence à la map
      */
@@ -390,13 +502,84 @@ public class Enemy extends Character {
     }
     
     /**
-     * Crée un projectile lors de l'attaque. Par défaut, retourne null.
-     * Peut être surchargée dans les sous-classes (ex: Vampire) pour créer des projectiles.
+     * Définit la zone assignée à cet ennemi.
      * 
-     * @return Le projectile créé, ou null si cet ennemi n'utilise pas de projectiles
+     * @param zoneId ID de la zone (1-6)
      */
-    public Projectile createProjectileOnAttack() {
-        // Par défaut, pas de projectile (pour les slimes par exemple)
-        return null;
+    public void setZoneId(int zoneId) {
+        this.zoneId = zoneId;
+    }
+    
+    /**
+     * Retourne l'ID de la zone assignée à cet ennemi.
+     * 
+     * @return L'ID de la zone (1-6), ou 0 si aucune zone n'est assignée
+     */
+    public int getZoneId() {
+        return zoneId;
+    }
+    
+    /**
+     * Définit la position initiale (spawn point) de l'ennemi.
+     * 
+     * @param x Position X initiale
+     * @param y Position Y initiale
+     */
+    public void setInitialPosition(float x, float y) {
+        this.initialX = x;
+        this.initialY = y;
+    }
+    
+    /**
+     * Retourne la position X initiale (spawn point) de l'ennemi.
+     * 
+     * @return Position X initiale
+     */
+    public float getInitialX() {
+        return initialX;
+    }
+    
+    /**
+     * Retourne la position Y initiale (spawn point) de l'ennemi.
+     * 
+     * @return Position Y initiale
+     */
+    public float getInitialY() {
+        return initialY;
+    }
+    
+    /**
+     * Retourne les dégâts d'attaque de l'ennemi.
+     * Doit être surchargée dans les sous-classes pour définir les dégâts selon le niveau.
+     * 
+     * @return Les dégâts d'attaque
+     */
+    protected int getAttackDamage() {
+        return 1; // Par défaut, 1 dégât
+    }
+    
+    /**
+     * Retourne le nombre de respawns effectués.
+     * 
+     * @return Le nombre de respawns
+     */
+    public int getRespawnCount() {
+        return respawnCount;
+    }
+    
+    /**
+     * Définit le nombre de respawns effectués.
+     * 
+     * @param respawnCount Le nombre de respawns
+     */
+    public void setRespawnCount(int respawnCount) {
+        this.respawnCount = respawnCount;
+    }
+    
+    /**
+     * Incrémente le compteur de respawns.
+     */
+    public void incrementRespawnCount() {
+        this.respawnCount++;
     }
 }

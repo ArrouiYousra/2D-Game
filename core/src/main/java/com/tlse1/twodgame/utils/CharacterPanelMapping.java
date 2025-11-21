@@ -38,9 +38,6 @@ public class CharacterPanelMapping {
             // Charger tous les sprites depuis character_panel.json
             JsonValue spritesData = jsonReader.parse(Gdx.files.internal("gui/character_panel.json"));
             loadAllSprites(spritesData);
-            
-            Gdx.app.log("CharacterPanelMapping", String.format(
-                "Mapping character panel chargé: %d sprites", allSprites.size()));
         } catch (Exception e) {
             Gdx.app.error("CharacterPanelMapping", "Erreur lors du chargement du mapping character panel: " + e.getMessage());
             e.printStackTrace();
@@ -67,9 +64,6 @@ public class CharacterPanelMapping {
             // Créer la TextureRegion
             TextureRegion region = new TextureRegion(panelTexture, x, y, width, height);
             allSprites.put(name, region);
-            
-            Gdx.app.debug("CharacterPanelMapping", String.format(
-                "Sprite character panel '%s' chargé: %dx%d à (%d,%d)", name, width, height, x, y));
         }
     }
     

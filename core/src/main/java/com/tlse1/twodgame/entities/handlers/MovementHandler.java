@@ -34,6 +34,10 @@ public class MovementHandler {
         float currentSpeed = isRunning ? speed * runSpeedMultiplier : speed;
         float moveDistance = currentSpeed * deltaTime;
         
+        // Sauvegarder la position actuelle pour vérifier si le mouvement a réellement eu lieu
+        float oldX = x;
+        float oldY = y;
+        
         float newX = x;
         float newY = y;
         
@@ -53,27 +57,31 @@ public class MovementHandler {
         }
         
         // Vérifier les collisions si un CollisionHandler est disponible
-        // Note: Les collisions utilisent les hitboxes fixes (centrées sur les sprites)
-        // Le CollisionHandler vérifie les collisions en utilisant la position de la hitbox centrée
-        // Pour cela, on doit calculer la position de la hitbox à partir de la position du sprite
         if (collisionHandler != null) {
-            // Calculer la position de la hitbox centrée pour la position actuelle et la nouvelle position
-            // La hitbox est centrée sur le sprite, donc on doit connaître les dimensions visuelles du sprite
-            // Pour l'instant, on utilise directement x, y car le CollisionHandler utilise déjà les dimensions de la hitbox
-            // TODO: Si nécessaire, ajuster pour tenir compte du centrage de la hitbox
             float[] adjustedPos = collisionHandler.adjustPosition(x, y, newX, newY);
             x = adjustedPos[0];
             y = adjustedPos[1];
         } else {
-            // Pas de collision, déplacer normalement
             x = newX;
             y = newY;
         }
         
+        // Vérifier si le mouvement a réellement eu lieu
+        boolean hasMoved = (Math.abs(x - oldX) > 0.01f || Math.abs(y - oldY) > 0.01f);
+        
         if (animationHandler != null) {
+            // Toujours permettre le changement de direction (pour que le joueur puisse faire face à l'ennemi même bloqué)
             animationHandler.setCurrentDirection(direction);
-            animationHandler.setMoving(true);
-            animationHandler.setRunning(isRunning);
+            
+            // Mais seulement mettre l'animation en "moving" si le mouvement a réellement eu lieu
+            if (hasMoved) {
+                animationHandler.setMoving(true);
+                animationHandler.setRunning(isRunning);
+            } else {
+                // Le mouvement est bloqué, mais on garde la direction pour que le joueur puisse attaquer
+                animationHandler.setMoving(false);
+                animationHandler.setRunning(false);
+            }
         }
     }
     

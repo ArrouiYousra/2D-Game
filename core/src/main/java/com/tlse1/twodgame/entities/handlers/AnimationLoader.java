@@ -79,9 +79,6 @@ public class AnimationLoader {
             // Compter le nombre total de sprites
             int totalSprites = downSprites.size() + sideLeftSprites.size() + sideSprites.size() + upSprites.size();
             
-            Gdx.app.log("AnimationLoader", String.format(
-                "Animation %s chargée: %d directions, %d sprites au total", animationType, directionsCount, totalSprites));
-            
         } catch (Exception e) {
             Gdx.app.error("AnimationLoader", "Erreur lors du chargement de l'animation " + animationType, e);
             e.printStackTrace();
@@ -121,10 +118,6 @@ public class AnimationLoader {
             // Dupliquer le dernier sprite comme 12e frame
             // Quand l'animation atteint cette frame, elle se termine et le vampire disparaît
             frames[actualSprites] = new TextureRegion(frames[actualSprites - 1]);
-            
-            Gdx.app.log("AnimationLoader", String.format(
-                "Animation %s (%s): Ajout d'un 12e sprite (dupliqué) pour compléter l'animation (avait %d sprites)",
-                animationType, direction, actualSprites));
         }
         
         Animation<TextureRegion> animation = new Animation<>(frameDuration, frames);

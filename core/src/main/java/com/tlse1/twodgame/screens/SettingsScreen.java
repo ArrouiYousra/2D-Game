@@ -100,8 +100,6 @@ public class SettingsScreen implements Screen {
         if (menuBackground == null || resume == null || restart == null
                 || setting == null || quit == null) {
             Gdx.app.error("MenuScreen", "Impossible de charger les sprites du menu");
-        } else {
-            Gdx.app.log("MenuScreen", "Sprites du menu chargés");
         }
 
         menuX = 0;
@@ -265,7 +263,6 @@ public class SettingsScreen implements Screen {
                 toggleFullscreen(!isFullscreen);
 
             } else if (isCrossButtonHovered) {
-                Gdx.app.log("MenuScreen", "Bouton Cross cliqué");
                 game.setScreen(new MenuScreen(game));
 
             } else if (isRestartButtonHovered) {
@@ -280,7 +277,7 @@ public class SettingsScreen implements Screen {
         }
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-            Gdx.app.log("MenuScreen", "ESC pressé");
+            // ESC pressé
         }
     }
 
@@ -294,13 +291,10 @@ public class SettingsScreen implements Screen {
             // Passer en plein écran
             Gdx.graphics.setFullscreenMode(Gdx.graphics.getDisplayMode());
             isFullscreen = true;
-            Gdx.app.log("SettingsScreen", "Passage en plein écran");
-
         } else if (!fullscreen && isFullscreen) {
             // Passer en mode fenêtré
             Gdx.graphics.setWindowedMode(WINDOWED_WIDTH, WINDOWED_HEIGHT);
             isFullscreen = false;
-            Gdx.app.log("SettingsScreen", "Passage en mode fenêtré");
         }
     }
 

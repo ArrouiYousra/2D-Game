@@ -23,12 +23,32 @@ public class CombatHandler {
     
     /**
      * Inflige des dégâts au personnage.
+     * Les dégâts sont d'abord absorbés par le shield, puis par les HP.
      * 
      * @param damage Montant des dégâts
      */
     public void takeDamage(int damage) {
-        health = Math.max(0, health - damage);
-        Gdx.app.log("CombatHandler", String.format("Santé: %d/%d", health, maxHealth));
+        if (damage <= 0) {
+            return;
+        }
+        
+        // D'abord, les dégâts sont absorbés par le shield
+        if (shield > 0) {
+            if (shield >= damage) {
+                // Le shield absorbe tous les dégâts
+                shield -= damage;
+                damage = 0;
+            } else {
+                // Le shield est détruit, les dégâts restants passent aux HP
+                damage -= shield;
+                shield = 0;
+            }
+        }
+        
+        // Les dégâts restants sont infligés aux HP
+        if (damage > 0) {
+            health = Math.max(0, health - damage);
+        }
         
         // Déclencher l'animation de blessure
         if (health > 0 && animationHandler != null) {

@@ -69,12 +69,6 @@ public class CollisionHandler {
         float hitboxY = hitboxPos[1];
         
         boolean colliding = mapLoader.isColliding(hitboxX, hitboxY, entityWidth, entityHeight);
-        // Log seulement occasionnellement pour éviter le spam
-        if (colliding && Math.random() < 0.01) {
-            com.badlogic.gdx.Gdx.app.debug("CollisionHandler", String.format(
-                "Position invalide: sprite (%.1f, %.1f) -> hitbox (%.1f, %.1f) size (%.1f, %.1f)", 
-                spriteX, spriteY, hitboxX, hitboxY, entityWidth, entityHeight));
-        }
         return !colliding;
     }
     

@@ -99,15 +99,11 @@ public class SettingsMapping {
                 JsonValue nameMapping = jsonReader.parse(Gdx.files.internal("gui/settings_sprite_names.json"));
                 loadSpriteNameMapping(nameMapping);
             } catch (Exception e) {
-                Gdx.app.log("SettingsMapping", "Fichier settings_sprite_names.json non trouvé, utilisation des noms de sprites directement");
+                // Fichier settings_sprite_names.json non trouvé, utilisation des noms de sprites directement
             }
             
             // Créer les mappings sémantiques depuis les noms de sprites
             createSemanticMappings();
-            
-            Gdx.app.log("SettingsMapping", String.format(
-                "Mapping chargé: %d sprites, %d screens, %d boutons, %d icônes",
-                allSprites.size(), screens.size(), buttons.size(), icons.size()));
         } catch (Exception e) {
             Gdx.app.error("SettingsMapping", "Erreur lors du chargement du mapping: " + e.getMessage());
             e.printStackTrace();
@@ -134,9 +130,6 @@ public class SettingsMapping {
             // Créer la TextureRegion
             TextureRegion region = new TextureRegion(settingsTexture, x, y, width, height);
             allSprites.put(name, region);
-            
-            Gdx.app.debug("SettingsMapping", String.format(
-                "Sprite '%s' chargé: %dx%d à (%d,%d)", name, width, height, x, y));
         }
     }
     
@@ -246,12 +239,6 @@ public class SettingsMapping {
                 
                 // Créer une zone cliquable (les coordonnées seront ajustées lors du rendu)
                 clickableAreas.put(name, new ClickableArea(name, x, y, width, height, type));
-                
-                Gdx.app.log("SettingsMapping", String.format(
-                    "%s '%s' chargé: %dx%d à (%d,%d)", type, name, width, height, x, y));
-            } else {
-                Gdx.app.log("SettingsMapping", String.format(
-                    "%s '%s' ignoré (coordonnées non définies)", type, name));
             }
         }
     }

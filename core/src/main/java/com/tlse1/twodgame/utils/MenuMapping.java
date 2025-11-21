@@ -38,9 +38,6 @@ public class MenuMapping {
             // Charger tous les sprites depuis main_menu_sprites.json
             JsonValue spritesData = jsonReader.parse(Gdx.files.internal("gui/main_menu_sprites.json"));
             loadAllSprites(spritesData);
-            
-            Gdx.app.log("MenuMapping", String.format(
-                "Mapping menu chargé: %d sprites", allSprites.size()));
         } catch (Exception e) {
             Gdx.app.error("MenuMapping", "Erreur lors du chargement du mapping menu: " + e.getMessage());
             e.printStackTrace();
@@ -67,9 +64,6 @@ public class MenuMapping {
             // Créer la TextureRegion
             TextureRegion region = new TextureRegion(menuTexture, x, y, width, height);
             allSprites.put(name, region);
-            
-            Gdx.app.debug("MenuMapping", String.format(
-                "Sprite menu '%s' chargé: %dx%d à (%d,%d)", name, width, height, x, y));
         }
     }
     
