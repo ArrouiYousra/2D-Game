@@ -13,8 +13,12 @@ public class Inventory {
      * Types d'items disponibles
      */
     public enum ItemType {
-        SHIELD,  // Item pour restaurer le shield
-        HEAL     // Item pour restaurer la santé
+        SHIELD,         // Item pour restaurer le shield
+        HEAL,           // Item pour restaurer la santé
+        DAMAGE_BOOST,   // Collectible pour augmenter les dégâts (+2)
+        SPEED_BOOST,    // Collectible pour augmenter la vitesse (+2)
+        SHIELD_POTION,  // Potion pour restaurer le shield (moitié du max)
+        HEAL_POTION     // Potion pour restaurer la santé (+10 HP)
     }
     
     /**
@@ -35,8 +39,8 @@ public class Inventory {
     // Liste des items dans l'inventaire
     private List<Item> items;
     
-    // Capacité maximale de l'inventaire (sprite1 fait 168x20, on peut mettre plusieurs items)
-    private int maxCapacity = 10;
+    // Capacité maximale de l'inventaire (4 slots pour les collectibles)
+    private int maxCapacity = 4;
     
     public Inventory() {
         this.items = new ArrayList<>();
