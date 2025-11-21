@@ -50,11 +50,14 @@ public class Slime extends Enemy {
         combatHandler.setMaxHealth(50);
         combatHandler.setHealth(50);
         
+        // Configurer la portée de détection (agro) : plus petite pour les slimes car plus intuitifs
+        setDetectionRange(200f); // 200 pixels (plus petit que les vampires)
+        
         // Définir la hitbox fixe du slime (centrée sur chaque sprite)
         // La hitbox est utilisée pour les collisions et les attaques
-        // Dimensions fixes : 17x16 pixels (ne change pas selon l'animation)
-        setHitboxWidth(13f);  // 17 pixels de largeur
-        setHitboxHeight(14f); // 16 pixels de hauteur
+        // Même hitbox pour tous les ennemis (slimes et vampires)
+        setHitboxWidth(14f);  // 14 pixels de largeur
+        setHitboxHeight(16f); // 16 pixels de hauteur
         
         // Charger toutes les animations
         loadAnimations();
@@ -115,9 +118,12 @@ public class Slime extends Enemy {
             "run", 0.10f, yRanges, true);
         
         // Attack
+        String attackJsonPath = jsonPrefix + "/" + jsonNamePrefix + level + "_attack.json";
+        String attackPngPath = slimePrefix + "/With_shadow/Slime" + level + "_Attack_with_shadow.png";
+        Gdx.app.log("Slime", String.format("Slime niveau %d: Chargement animation attack - JSON: %s, PNG: %s", level, attackJsonPath, attackPngPath));
         AnimationLoader.loadAnimation(animationHandler,
-            jsonPrefix + "/" + jsonNamePrefix + level + "_attack.json",
-            slimePrefix + "/With_shadow/Slime" + level + "_Attack_with_shadow.png",
+            attackJsonPath,
+            attackPngPath,
             "attack", 0.08f, yRanges, false);
         
         // Hurt
