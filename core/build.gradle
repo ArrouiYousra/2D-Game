@@ -1,6 +1,63 @@
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
 eclipse.project.name = appName + '-core'
 
+// Configuration JavaDoc
+javadoc {
+    options.encoding = 'UTF-8'
+    options.charSet = 'UTF-8'
+    options.author = true
+    options.version = true
+    options.windowTitle = '2D-Game API Documentation'
+    options.docTitle = '2D-Game API Documentation'
+    options.bottom = 'Copyright © 2024'
+    failOnError = false
+}
+
+// Configuration JaCoCo pour la couverture de code
+apply plugin: 'jacoco'
+
+jacoco {
+    toolVersion = "0.8.11"
+}
+
+test {
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
+    
+    executionData.setFrom(fileTree(layout.buildDirectory.dir("jacoco")).include("**/*.exec"))
+    classDirectories.setFrom(files(sourceSets.main.output.classesDirs))
+    sourceDirectories.setFrom(files(sourceSets.main.allSource.srcDirs))
+    
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                '**/screens/**',
+                '**/TwoDGame.class',
+                '**/lwjgl3/**'
+            ])
+        }))
+    }
+}
+
+task jacocoTestCoverageVerification(type: JacocoCoverageVerification) {
+    dependsOn jacocoTestReport
+    violationRules {
+        rule {
+            limit {
+                minimum = 0.50 // Minimum 50% de couverture
+            }
+        }
+    }
+}
+
 dependencies {
   api "com.badlogicgames.box2dlights:box2dlights:$box2dlightsVersion"
   api "com.badlogicgames.gdx:gdx-box2d:$gdxVersion"
@@ -15,4 +72,8 @@ dependencies {
   if(enableGraalNative == 'true') {
     implementation "io.github.berstanio:gdx-svmhelper-annotations:$graalHelperVersion"
   }
+  
+  // Tests
+  testImplementation 'junit:junit:4.13.2'
+  testImplementation 'org.mockito:mockito-core:5.1.1'
 }
