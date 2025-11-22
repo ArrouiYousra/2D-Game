@@ -13,8 +13,10 @@ public class Inventory {
      * Types d'items disponibles
      */
     public enum ItemType {
-        SHIELD,  // Item pour restaurer le shield
-        HEAL     // Item pour restaurer la santé
+        DAMAGE_BOOST,   // Collectible pour augmenter les dégâts (+10)
+        SPEED_BOOST,    // Collectible pour augmenter la vitesse (+10)
+        SHIELD_POTION,  // Potion pour restaurer le shield (moitié du max)
+        HEAL_POTION     // Potion pour restaurer la santé (+10 HP)
     }
     
     /**
@@ -35,32 +37,28 @@ public class Inventory {
     // Liste des items dans l'inventaire
     private List<Item> items;
     
-    // Capacité maximale de l'inventaire (sprite1 fait 168x20, on peut mettre plusieurs items)
-    private int maxCapacity = 10;
-    
     public Inventory() {
         this.items = new ArrayList<>();
     }
     
     /**
      * Ajoute un item à l'inventaire.
+     * L'inventaire peut contenir un nombre illimité d'items.
      * 
      * @param item L'item à ajouter
-     * @return true si l'item a été ajouté, false si l'inventaire est plein
+     * @return true si l'item a été ajouté (toujours true)
      */
     public boolean addItem(Item item) {
-        if (items.size() >= maxCapacity) {
-            return false;
-        }
         items.add(item);
         return true;
     }
     
     /**
      * Ajoute un item par type.
+     * L'inventaire peut contenir un nombre illimité d'items.
      * 
      * @param type Le type d'item à ajouter
-     * @return true si l'item a été ajouté, false si l'inventaire est plein
+     * @return true si l'item a été ajouté (toujours true)
      */
     public boolean addItem(ItemType type) {
         return addItem(new Item(type));
@@ -109,11 +107,12 @@ public class Inventory {
     
     /**
      * Vérifie si l'inventaire est plein.
+     * L'inventaire peut contenir un nombre illimité d'items, donc cette méthode retourne toujours false.
      * 
-     * @return true si l'inventaire est plein
+     * @return false (l'inventaire n'est jamais plein)
      */
     public boolean isFull() {
-        return items.size() >= maxCapacity;
+        return false; // Capacité illimitée
     }
     
     /**
@@ -134,20 +133,22 @@ public class Inventory {
     
     /**
      * Définit la capacité maximale de l'inventaire.
+     * Cette méthode est conservée pour compatibilité mais n'a plus d'effet (capacité illimitée).
      * 
-     * @param maxCapacity La nouvelle capacité maximale
+     * @param maxCapacity La nouvelle capacité maximale (ignorée)
      */
     public void setMaxCapacity(int maxCapacity) {
-        this.maxCapacity = maxCapacity;
+        // Capacité illimitée, cette méthode n'a plus d'effet
     }
     
     /**
      * Retourne la capacité maximale de l'inventaire.
+     * L'inventaire a une capacité illimitée, donc cette méthode retourne Integer.MAX_VALUE.
      * 
-     * @return La capacité maximale
+     * @return Integer.MAX_VALUE (capacité illimitée)
      */
     public int getMaxCapacity() {
-        return maxCapacity;
+        return Integer.MAX_VALUE; // Capacité illimitée
     }
 }
 

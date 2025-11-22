@@ -148,6 +148,10 @@ nb-configuration.xml
 .DS_Store
 Thumbs.db
 *Zone.Identifier
+**/*Zone.Identifier
+*.jar:Zone.Identifier
+*.png:Zone.Identifier
+*.json:Zone.Identifier
 
 ## Miscellaneous:
 *~

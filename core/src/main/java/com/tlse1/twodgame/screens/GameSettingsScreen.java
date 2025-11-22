@@ -150,8 +150,6 @@ public class GameSettingsScreen implements Screen {
     private void validateAssets() {
         if (menuBackground == null) {
             Gdx.app.error("GameSettingsScreen", "Impossible de charger le background");
-        } else {
-            Gdx.app.log("GameSettingsScreen", "Assets chargés avec succès");
         }
     }
 
@@ -413,7 +411,6 @@ public class GameSettingsScreen implements Screen {
      * Reprend le jeu où il était
      */
     private void resumeGame() {
-    Gdx.app.log("GameSettingsScreen", "Reprise du jeu");
     if (gameScreen != null) {
         gameScreen.resumeGame();
         // Ne pas appeler setScreen, juste revenir
@@ -428,7 +425,6 @@ public class GameSettingsScreen implements Screen {
      * Quitte le jeu
      */
     private void quitGame() {
-        Gdx.app.log("GameSettingsScreen", "Fermeture du jeu");
         Gdx.app.exit();
     }
 
@@ -439,12 +435,9 @@ public class GameSettingsScreen implements Screen {
         if (fullscreen && !isFullscreen) {
             Gdx.graphics.setFullscreenMode(Gdx.graphics.getDisplayMode());
             isFullscreen = true;
-            Gdx.app.log("GameSettingsScreen", "Passage en plein écran");
-            
         } else if (!fullscreen && isFullscreen) {
             Gdx.graphics.setWindowedMode(WINDOWED_WIDTH, WINDOWED_HEIGHT);
             isFullscreen = false;
-            Gdx.app.log("GameSettingsScreen", "Passage en mode fenêtré");
         }
     }
 

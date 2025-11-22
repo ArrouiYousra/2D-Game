@@ -38,9 +38,6 @@ public class ActionPanelMapping {
             // Charger tous les sprites depuis action_panel.json
             JsonValue spritesData = jsonReader.parse(Gdx.files.internal("gui/action_panel.json"));
             loadAllSprites(spritesData);
-            
-            Gdx.app.log("ActionPanelMapping", String.format(
-                "Mapping action panel chargé: %d sprites", allSprites.size()));
         } catch (Exception e) {
             Gdx.app.error("ActionPanelMapping", "Erreur lors du chargement du mapping action panel: " + e.getMessage());
             e.printStackTrace();
@@ -67,9 +64,6 @@ public class ActionPanelMapping {
             // Créer la TextureRegion
             TextureRegion region = new TextureRegion(panelTexture, x, y, width, height);
             allSprites.put(name, region);
-            
-            Gdx.app.debug("ActionPanelMapping", String.format(
-                "Sprite action panel '%s' chargé: %dx%d à (%d,%d)", name, width, height, x, y));
         }
     }
     

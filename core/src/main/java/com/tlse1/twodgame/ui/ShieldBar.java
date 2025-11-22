@@ -120,12 +120,8 @@ public class ShieldBar {
         // Calculer le ratio de shield
         float shieldRatio = (float) currentShield / (float) maxShield;
         
-        // 2. Dessiner la barre vide (sprite8) - toujours, même si shield = 0
-        if (emptyBarSprite != null) {
-            float barX = x + barOffsetX * scale;
-            float barY = y + barOffsetY * scale;
-            batch.draw(emptyBarSprite, barX, barY, barWidth * scale, barHeight * scale);
-        }
+        // 2. Ne pas dessiner la barre verte vide (sprite8) car elle a un fond coloré
+        // qui cache le panel_vide.png. Seuls les traits de remplissage seront dessinés.
         
         // 3. Dessiner les traits pour remplir la barre (seulement si shield > 0)
         if (shieldRatio > 0 && fillSprite9 != null && fillSprite10 != null && fillSprite11 != null) {

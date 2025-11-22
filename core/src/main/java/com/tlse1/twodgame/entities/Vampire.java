@@ -38,36 +38,31 @@ public class Vampire extends Enemy {
         setSpeed(playerSpeed / 4f); // 37.5 pixels/seconde
         
         // Configurer la santé selon le niveau
-        int health = 100 * level; // Niveau 1 = 100 HP, Niveau 2 = 200 HP, Niveau 3 = 300 HP
+        int health;
+        switch (level) {
+            case 1:
+                health = 50;
+                break;
+            case 2:
+                health = 75;
+                break;
+            case 3:
+                health = 125;
+                break;
+            default:
+                health = 50;
+                break;
+        }
         combatHandler.setMaxHealth(health);
         combatHandler.setHealth(health);
         
-        // Configurer la portée d'attaque (les vampires attaquent à distance avec des projectiles)
-        setAttackRange(300f); // 300 pixels de portée d'attaque
+        // Les vampires attaquent au corps à corps comme les slimes
         
         // Configurer la portée de détection (agro) : plus grande pour les vampires
         setDetectionRange(400f); // 400 pixels (plus grand que les slimes)
         
-        // Configurer le cooldown d'attaque selon le niveau (vitesse de tir)
-        // Niveau 1 : 1 projectile/seconde = cooldown de 1.0 seconde
-        // Niveau 2 : 2 projectiles/seconde = cooldown de 0.5 seconde
-        // Niveau 3 : 3 projectiles/seconde = cooldown de 0.333 seconde
-        float attackCooldownTime;
-        switch (level) {
-            case 1:
-                attackCooldownTime = 1.0f;
-                break;
-            case 2:
-                attackCooldownTime = 0.5f;
-                break;
-            case 3:
-                attackCooldownTime = 1.0f / 3.0f; // ~0.333 seconde
-                break;
-            default:
-                attackCooldownTime = 1.0f;
-                break;
-        }
-        setAttackCooldownTime(attackCooldownTime);
+        // Configurer le cooldown d'attaque (même pour tous les niveaux, attaque au corps à corps)
+        setAttackCooldownTime(2.0f); // 2 secondes entre chaque attaque
         
         // Définir la hitbox fixe du vampire
         // Même hitbox pour tous les ennemis (slimes et vampires)
@@ -90,8 +85,6 @@ public class Vampire extends Enemy {
         // Vérifier que les animations sont bien chargées
         if (animationHandler.getCurrentAnimation() == null) {
             Gdx.app.error("Vampire", String.format("Vampire niveau %d: Aucune animation chargée après loadAnimations()!", level));
-        } else {
-            Gdx.app.log("Vampire", String.format("Vampire niveau %d: Animation initialisée correctement", level));
         }
     }
     
@@ -158,9 +151,6 @@ public class Vampire extends Enemy {
             jsonPrefix + "/vampires" + level + "_death_sprites.json",
             vampirePrefix + "/With_shadow/Vampires" + level + "_Death_with_shadow.png",
             "death", 0.15f, yRanges, false);
-        
-        // Log pour confirmer le chargement de l'animation de mort
-        Gdx.app.log("Vampire", String.format("Vampire niveau %d: animation de mort chargée", level));
     }
     
     /**
@@ -186,52 +176,23 @@ public class Vampire extends Enemy {
     }
     
     /**
-     * Crée un projectile lors de l'attaque du vampire.
-     * Le projectile part du centre du vampire dans la direction du joueur.
-     * Tous les projectiles font 4x4 pixels.
-     * La vitesse et les dégâts varient selon le niveau :
-     * - Niveau 1 : vitesse de base, 1 dégât/seconde
-     * - Niveau 2 : vitesse x2, 2 dégâts/seconde
-     * - Niveau 3 : vitesse x3, 3 dégâts/seconde
+     * Retourne les dégâts d'attaque du vampire selon son niveau.
+     * Les vampires attaquent au corps à corps comme les slimes.
      * 
-     * @return Le projectile créé
+     * @return Les dégâts d'attaque
      */
     @Override
-    public Projectile createProjectileOnAttack() {
-        if (mapLoader == null) {
-            Gdx.app.error("Vampire", "mapLoader est null, impossible de créer un projectile");
-            return null;
+    protected int getAttackDamage() {
+        switch (level) {
+            case 1:
+                return 18;
+            case 2:
+                return 30;
+            case 3:
+                return 45;
+            default:
+                return 18;
         }
-        
-        // Position de départ : centre du vampire (ajustée pour centrer le projectile)
-        float vampireCenterX = getX() + getWidth() / 2f;
-        float vampireCenterY = getY() + getHeight() / 2f;
-        
-        // Direction actuelle du vampire (vers le joueur)
-        Direction attackDirection = getCurrentDirection();
-        
-        // Tous les projectiles font 4x4 pixels
-        float projectileSize = 4f;
-        
-        // Vitesse de base du projectile
-        float baseSpeed = 200f; // pixels/seconde
-        
-        // Dégâts et vitesse selon le niveau (multiple = niveau)
-        float damagePerSecond = level; // 1, 2 ou 3
-        float projectileSpeed = baseSpeed * level; // 200, 400 ou 600 pixels/seconde
-        
-        // Ajuster la position pour centrer le projectile sur le vampire
-        float projectileStartX = vampireCenterX - projectileSize / 2f;
-        float projectileStartY = vampireCenterY - projectileSize / 2f;
-        
-        // Créer le projectile
-        Projectile projectile = new Projectile(projectileStartX, projectileStartY, attackDirection, 
-                                             mapLoader, projectileSize, projectileSize, damagePerSecond, projectileSpeed);
-        
-        Gdx.app.log("Vampire", String.format("Vampire niveau %d: Projectile %fx%f créé à (%.1f, %.1f) direction %s, vitesse %.0f px/s, %.0f dégât/sec", 
-            level, projectileSize, projectileSize, projectileStartX, projectileStartY, attackDirection, projectileSpeed, damagePerSecond));
-        
-        return projectile;
     }
 }
 

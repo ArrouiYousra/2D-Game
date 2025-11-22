@@ -1,36 +1,321 @@
-# 2D-Game
+# 🎮 2D-Game
 
-A [libGDX](https://libgdx.com/) project generated with [gdx-liftoff](https://github.com/libgdx/gdx-liftoff).
+Jeu d'action/aventure 2D développé avec **LibGDX** en Java.
 
-This project was generated with a template including simple application launchers and an `ApplicationAdapter` extension that draws libGDX logo.
+---
 
-## Platforms
+## 📋 Table des Matières
 
-- `core`: Main module with the application logic shared by all platforms.
-- `lwjgl3`: Primary desktop platform using LWJGL3; was called 'desktop' in older docs.
+- [Requirements](#-requirements)
+- [Installation](#-installation)
+- [Architecture](#-architecture)
+- [Déploiement](#-déploiement)
+- [Documentation](#-documentation)
 
-## Gradle
+---
 
-This project uses [Gradle](https://gradle.org/) to manage dependencies.
-The Gradle wrapper was included, so you can run Gradle tasks using `gradlew.bat` or `./gradlew` commands.
-Useful Gradle tasks and flags:
+## 🔧 Requirements
 
-- `--continue`: when using this flag, errors will not stop the tasks from running.
-- `--daemon`: thanks to this flag, Gradle daemon will be used to run chosen tasks.
-- `--offline`: when using this flag, cached dependency archives will be used.
-- `--refresh-dependencies`: this flag forces validation of all dependencies. Useful for snapshot versions.
-- `build`: builds sources and archives of every project.
-- `cleanEclipse`: removes Eclipse project data.
-- `cleanIdea`: removes IntelliJ project data.
-- `clean`: removes `build` folders, which store compiled classes and built archives.
-- `eclipse`: generates Eclipse project data.
-- `idea`: generates IntelliJ project data.
-- `lwjgl3:jar`: builds application's runnable jar, which can be found at `lwjgl3/build/libs`.
-- `lwjgl3:run`: starts the application.
-- `test`: runs unit tests (if any).
+### Prérequis Système
 
 Note that most tasks that are not specific to a single project can be run with `name:` prefix, where the `name` should be replaced with the ID of a specific project.
 For example, `core:clean` removes `build` folder only from the `core` project.
+
+- **Java** : Version 17 ou supérieure
+- **Gradle** : Inclus dans le projet via le wrapper (Gradle 8.x)
+- **OS** : Windows, Linux, ou macOS
+
+### Dépendances
+
+Le projet utilise les dépendances suivantes (définies dans `gradle.properties`) :
+
+- **LibGDX** : 1.14.0
+- **Box2D** : Pour la physique (si nécessaire)
+- **Anim8** : 0.5.4
+- **SquidLib** : 3.0.6
+- **Artemis ODB** : 2.3.0
+
+### Outils de Développement
+
+- **IDE** : IntelliJ IDEA, Eclipse, ou VS Code
+- **Build Tool** : Gradle (inclus)
+- **Version Control** : Git
+
+---
+
+## 🚀 Installation
+
+### 1. Cloner le Projet
+
+```bash
+git clone <url-du-repo>
+cd 2D-Game
+```
+
+### 2. Vérifier Java
+
+```bash
+java -version  # Doit afficher Java 17 ou supérieur
+```
+
+### 3. Compiler le Projet
+
+```bash
+# Linux/Mac
+./gradlew build
+
+# Windows
+gradlew.bat build
+```
+
+### 4. Lancer le Jeu
+
+```bash
+# Linux/Mac
+./gradlew :lwjgl3:run
+
+# Windows
+gradlew.bat :lwjgl3:run
+```
+
+---
+
+## 🏗️ Architecture
+
+### Structure du Projet
+
+```
+2D-Game/
+├── assets/                    # Ressources du jeu
+│   ├── gui/                  # Interface utilisateur (sprites, panels)
+│   ├── map/                  # Cartes (map.json, tilesets)
+│   ├── slims/                # Sprites des slimes
+│   ├── swordsman1-3/         # Sprites du joueur
+│   └── vampire_sprite_sheets/ # Sprites des vampires
+├── core/                     # Module principal (logique du jeu)
+│   └── src/main/java/com/tlse1/twodgame/
+│       ├── entities/         # Entités du jeu
+│       │   ├── Character.java      # Classe abstraite de base
+│       │   ├── Player.java         # Joueur
+│       │   ├── Enemy.java         # Ennemi de base
+│       │   ├── Slime.java         # Slime (extends Enemy)
+│       │   ├── Vampire.java       # Vampire (extends Enemy)
+│       │   ├── Inventory.java     # Inventaire
+│       │   ├── Collectible.java    # Collectibles
+│       │   └── handlers/          # Handlers pour les entités
+│       │       ├── AnimationHandler.java
+│       │       ├── CombatHandler.java
+│       │       ├── MovementHandler.java
+│       │       ├── CollisionHandler.java
+│       │       └── AnimationLoader.java
+│       ├── screens/          # Écrans du jeu
+│       │   ├── GameScreen.java    # Écran de jeu principal
+│       │   ├── MenuScreen.java    # Menu principal
+│       │   ├── SettingsScreen.java
+│       │   └── ...
+│       ├── managers/         # Gestionnaires
+│       │   └── JsonMapLoader.java # Chargeur de carte JSON
+│       ├── ui/               # Interface utilisateur
+│       │   ├── HealthBar.java
+│       │   └── ShieldBar.java
+│       ├── utils/            # Utilitaires
+│       │   ├── Direction.java
+│       │   ├── CharacterPanelMapping.java
+│       │   └── ...
+│       └── TwoDGame.java     # Classe principale
+├── lwjgl3/                   # Module desktop (launcher)
+│   └── src/main/java/com/tlse1/twodgame/lwjgl3/
+│       └── Lwjgl3Launcher.java
+├── build.gradle              # Configuration Gradle principale
+├── settings.gradle           # Configuration des modules
+└── gradle.properties         # Propriétés Gradle
+```
+
+### Architecture Logicielle
+
+#### Pattern : Handler System
+
+Le projet utilise un système de handlers pour séparer les responsabilités :
+
+```
+Character (abstract)
+├── AnimationHandler    → Gère toutes les animations
+├── CombatHandler       → Gère santé, shield, dégâts
+└── MovementHandler     → Gère mouvement et collisions
+```
+
+**Avantages** :
+- Séparation des responsabilités (Single Responsibility Principle)
+- Facilite les tests unitaires
+- Code modulaire et maintenable
+
+#### Hiérarchie d'Héritage
+
+```
+Character (abstract)
+    ├── Player
+    └── Enemy
+        ├── Slime
+        └── Vampire
+```
+
+**Concepts OOP utilisés** :
+- **Héritage** : `Player` et `Enemy` héritent de `Character`
+- **Abstraction** : `Character` est abstraite avec `loadAnimations()` abstraite
+- **Polymorphisme** : `getAttackDamage()` et `calculateDirectionToTarget()` surchargées
+- **Encapsulation** : Champs privés/protégés avec getters/setters
+
+#### Gestion de la Carte
+
+- **Format** : JSON (`map.json`)
+- **Loader** : `JsonMapLoader` charge les layers et tilesets
+- **Rendu** : `renderBeforePlayer()` et `renderAfterPlayer()` pour l'ordre de rendu
+- **Zones** : Système de zones pour l'IA des ennemis
+
+#### Système de Collisions
+
+- **CollisionHandler** : Détecte les collisions entité ↔ carte
+- **Hitboxes centrées** : Calcul automatique basé sur les dimensions des sprites
+- **Collisions entité ↔ entité** : Détection AABB dans `GameScreen`
+
+### Flux de Données
+
+```
+TwoDGame (main)
+    ↓
+GameScreen (écran principal)
+    ↓
+├── Player (entité contrôlée)
+│   ├── AnimationHandler
+│   ├── CombatHandler
+│   └── MovementHandler
+├── Enemies (ArrayList<Enemy>)
+│   ├── Slime (3 instances)
+│   └── Vampire (3 instances)
+├── Collectibles (ArrayList<Collectible>)
+├── JsonMapLoader (carte)
+└── UI (HealthBar, ShieldBar)
+```
+
+---
+
+## 📦 Déploiement
+
+### Créer un JAR Exécutable
+
+```bash
+# Compiler le JAR
+./gradlew :lwjgl3:jar
+
+# Le JAR sera créé dans : lwjgl3/build/libs/
+```
+
+### Structure du JAR
+
+Le JAR contient :
+- Toutes les classes compilées
+- Les assets du jeu (copiés dans le JAR)
+- Les dépendances (si fat JAR)
+
+### Distribution
+
+Pour distribuer le jeu :
+
+1. **Créer le JAR** : `./gradlew :lwjgl3:jar`
+2. **Copier les assets** : S'assurer que les assets sont inclus
+3. **Créer un launcher** : Script batch/shell pour lancer le JAR
+4. **Packager** : Créer un installer ou un zip avec le JAR et les assets
+
+### Exemple de Launcher
+
+**Linux/Mac** (`run.sh`) :
+```bash
+#!/bin/bash
+java -jar lwjgl3/build/libs/2D-Game-1.0.0.jar
+```
+
+**Windows** (`run.bat`) :
+```batch
+@echo off
+java -jar lwjgl3\build\libs\2D-Game-1.0.0.jar
+```
+
+### Build pour Production
+
+```bash
+# Nettoyer et reconstruire
+./gradlew clean build
+
+# Créer le JAR
+./gradlew :lwjgl3:jar
+
+# Tests et couverture
+./gradlew :core:test :core:jacocoTestReport
+```
+
+---
+
+## 📚 Documentation
+
+### Documentation Disponible
+
+- **[GDD.md](GDD.md)** : Game Design Document (concept, mécaniques, histoire, style, requirements)
+- **[GAMEPLAY_ENUMERATION.md](GAMEPLAY_ENUMERATION.md)** : Énumération détaillée du gameplay
+- **[README_TESTING.md](README_TESTING.md)** : Guide pour les tests et la couverture de code
+- **[DOCUMENTATION_GUIDE.md](DOCUMENTATION_GUIDE.md)** : Guide pour générer la JavaDoc
+
+### Générer la JavaDoc
+
+```bash
+./gradlew :core:javadoc
+# Disponible dans : core/build/docs/javadoc/index.html
+```
+
+### Tests et Couverture
+
+```bash
+# Lancer les tests
+./gradlew :core:test
+
+# Générer le rapport de couverture
+./gradlew :core:jacocoTestReport
+
+# Pipeline complet
+./pipeline.sh  # ou pipeline.bat sur Windows
+```
+
+---
+
+## 🔧 Commandes Utiles
+
+```bash
+# Compiler
+./gradlew build
+
+# Lancer le jeu
+./gradlew :lwjgl3:run
+
+# Tests
+./gradlew :core:test
+
+# Couverture
+./gradlew :core:jacocoTestReport
+
+# JavaDoc
+./gradlew :core:javadoc
+
+# JAR
+./gradlew :lwjgl3:jar
+
+# Nettoyer
+./gradlew clean
+```
+
+---
+
+## 📄 Licence
+
+Projet dans le cadre d'un module EPITECH de pré-MSc.
 
 
 

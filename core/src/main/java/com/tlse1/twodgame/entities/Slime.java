@@ -46,9 +46,24 @@ public class Slime extends Enemy {
         float playerSpeed = 150f;
         setSpeed(playerSpeed / 4f); // 37.5 pixels/seconde
         
-        // Configurer la santé du slime (moins que le vampire)
-        combatHandler.setMaxHealth(50);
-        combatHandler.setHealth(50);
+        // Configurer la santé du slime selon le niveau (+20 HP pour chaque niveau)
+        int health;
+        switch (level) {
+            case 1:
+                health = 25; // 25 HP
+                break;
+            case 2:
+                health = 30; // 30 HP
+                break;
+            case 3:
+                health = 40; // 40 HP
+                break;
+            default:
+                health = 25; // 25 HP
+                break;
+        }
+        combatHandler.setMaxHealth(health);
+        combatHandler.setHealth(health);
         
         // Configurer la portée de détection (agro) : plus petite pour les slimes car plus intuitifs
         setDetectionRange(200f); // 200 pixels (plus petit que les vampires)
@@ -76,6 +91,34 @@ public class Slime extends Enemy {
         animationHandler.update(0f);
         animationHandler.setCurrentDirection(Direction.DOWN);
         animationHandler.setMoving(false);
+    }
+    
+    /**
+     * Retourne le niveau du slime.
+     * 
+     * @return Le niveau (1, 2 ou 3)
+     */
+    public int getLevel() {
+        return level;
+    }
+    
+    /**
+     * Retourne les dégâts d'attaque du slime selon son niveau.
+     * 
+     * @return Les dégâts d'attaque
+     */
+    @Override
+    protected int getAttackDamage() {
+        switch (level) {
+            case 1:
+                return 9;
+            case 2:
+                return 40;
+            case 3:
+                return 30;
+            default:
+                return 9;
+        }
     }
     
     /**
@@ -120,7 +163,6 @@ public class Slime extends Enemy {
         // Attack
         String attackJsonPath = jsonPrefix + "/" + jsonNamePrefix + level + "_attack.json";
         String attackPngPath = slimePrefix + "/With_shadow/Slime" + level + "_Attack_with_shadow.png";
-        Gdx.app.log("Slime", String.format("Slime niveau %d: Chargement animation attack - JSON: %s, PNG: %s", level, attackJsonPath, attackPngPath));
         AnimationLoader.loadAnimation(animationHandler,
             attackJsonPath,
             attackPngPath,
@@ -137,8 +179,6 @@ public class Slime extends Enemy {
             jsonPrefix + "/" + jsonNamePrefix + level + "_death.json",
             slimePrefix + "/With_shadow/Slime" + level + "_Death_with_shadow.png",
             "death", 0.15f, yRanges, false);
-        
-        Gdx.app.log("Slime", String.format("Slime niveau %d: animations chargées", level));
     }
     
     /**
