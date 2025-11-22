@@ -3,6 +3,8 @@ package com.tlse1.twodgame;
 import com.badlogic.gdx.Game;
 
 import com.tlse1.twodgame.screens.MenuScreen;
+import com.tlse1.twodgame.screens.TestScreen;
+import com.tlse1.twodgame.screens.SettingsScreen;
 
 
 /**

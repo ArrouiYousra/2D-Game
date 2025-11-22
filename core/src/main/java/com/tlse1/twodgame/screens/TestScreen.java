@@ -15,7 +15,7 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Rectangle;
 
-public class SettingsScreen implements Screen {
+public class TestScreen implements Screen {
 
     private TwoDGame game;
     private SpriteBatch batch;
@@ -36,7 +36,6 @@ public class SettingsScreen implements Screen {
     private Texture click = new Texture("gui/PNG/Click.png");
     private Texture non_click = new Texture("gui/PNG/Non_click.png");
     private Texture settings_font = new Texture("gui/PNG/Settings_font.png");
-    private Texture text_font = new Texture("gui/PNG/Text_font.png");
     private Texture full_screen = new Texture("gui/PNG/Full_screen.png");
     private Texture window = new Texture("gui/PNG/Window.png");
     private Texture commande = new Texture("gui/PNG/Commande.png");
@@ -45,6 +44,7 @@ public class SettingsScreen implements Screen {
     private Texture S = new Texture("gui/PNG/S.png");
     private Texture D = new Texture("gui/PNG/D.png");
     private Texture background = new Texture("gui/PNG/Background.png");
+    private Texture prout = new Texture("gui/PNG/Prout.png");
 
     private TextureRegion resumeButton;
     private TextureRegion restartButton;
@@ -77,7 +77,7 @@ public class SettingsScreen implements Screen {
     private static final int WINDOWED_WIDTH = 1280;
     private static final int WINDOWED_HEIGHT = 720;
 
-    public SettingsScreen(TwoDGame game) {
+    public TestScreen(TwoDGame game) {
         this.game = game;
 
         screenWidth = Gdx.graphics.getWidth();
@@ -179,6 +179,9 @@ public class SettingsScreen implements Screen {
         float crossX = buttonX + drawHeight * 0.6f;
         float crossY = resumeY + drawHeight * 0.2f;
         
+        // Dessiner le fond
+        //batch.draw(background, drawWidth * 0.31f, drawHeight * 0.108f, drawWidth * 2.2f, drawHeight * 0.86f);
+        
         // DESSINER LES BOUTONS CLICK/NON_CLICK SELON L'ÉTAT
         if (isFullscreen) {
             // En plein écran : afficher click sur fullscreen
@@ -208,15 +211,14 @@ public class SettingsScreen implements Screen {
 
         // Dessiner les icônes fullscreen et window EN DESSOUS
         batch.draw(full_screen, fullscreenX, screenButtonY, screenButtonWidth, screenButtonHeight);
-        batch.draw(window, windowX, screenButtonY, screenButtonWidth, screenButtonHeight);
+        //batch.draw(window, windowX, screenButtonY, screenButtonWidth, screenButtonHeight);
 
         // Zones cliquables pour les boutons fullscreen/window
         fullscreenButtonBounds.set(fullscreenX, screenButtonY, screenButtonWidth, screenButtonHeight);
         windowButtonBounds.set(windowX, screenButtonY, screenButtonWidth, screenButtonHeight);
 
         // Texte "Settings" au centre
-        batch.draw(text_font, buttonX - drawHeight * 0.18f, resumeY -10, settingskWidth, settingsHeight);
-        batch.draw(settings_font, buttonX , resumeY +10, settingskWidth * 0.5f, settingsHeight * 0.7f);
+        batch.draw(prout, buttonX - drawHeight * 0.05f, resumeY + 30, settingskWidth, settingsHeight);
 
         // Commande
         batch.draw(commande, buttonX - drawHeight * 0.3f, settingsY, buttonWidth, buttonHeight);
