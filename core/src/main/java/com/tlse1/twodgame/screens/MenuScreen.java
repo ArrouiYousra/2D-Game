@@ -19,6 +19,8 @@ import com.tlse1.twodgame.utils.MenuMapping;
  */
 public class MenuScreen implements Screen {
 
+    private Texture textFont;
+
     // Constantes
     private static final float BUTTON_START_Y_PERCENT = 0.7f;
     private static final float BUTTON_SPACING_SCALE = 8f;
@@ -35,10 +37,6 @@ public class MenuScreen implements Screen {
     // Textures - Background et logo
     private final Texture backgroundBlur;
     private final Texture abyssLogo;
-    private final Texture abyssZomb1;
-    private final Texture abyssChelou;
-    private final Texture abyssSos;
-    private final Texture abyssZomb;
 
     // Textures - Boutons de menu
     private final Texture levelsTexture;
@@ -87,11 +85,8 @@ public class MenuScreen implements Screen {
 
         // Chargement des textures - Background et logo
         backgroundBlur = new Texture("gui/PNG/font_flou.png");
-        abyssLogo = new Texture("gui/PNG/Abyss_logo.png");
-        abyssZomb1 = new Texture("gui/PNG/Abyss_zomb1.png");
-        abyssChelou = new Texture("gui/PNG/Abyss_chelou.png");
-        abyssSos = new Texture("gui/PNG/Abyss_sos.png");
-        abyssZomb = new Texture("gui/PNG/Abyss_zomb.png");
+        textFont = new Texture("gui/PNG/Text_font.png");
+        abyssLogo = new Texture("gui/PNG/AbyssBorn.png");
 
         // Chargement des textures - Boutons
         levelsTexture = new Texture("gui/PNG/Levels.png");
@@ -186,15 +181,31 @@ public class MenuScreen implements Screen {
     }
 
     /**
-     * Dessine les logos Abyss
+     * Dessine les logos Abyss et Text_font - scalables selon la taille de la fenêtre
      */
     private void drawLogos() {
-        float logoWidth = 200;
-        float logoHeight = 50;
-        float drawWidth = menuBackground.getRegionWidth() * menuScale;
-        float drawHeight = menuBackground.getRegionHeight() * menuScale;
+        // Calculer les dimensions basées sur la largeur de l'écran pour être scalable
+        float baseWidth = screenWidth * 0.25f; // 25% de la largeur de l'écran
+        
+        // Text_font - calculer la hauteur proportionnellement
+        float textFontWidth = baseWidth;
+        float textFontHeight = (textFont.getHeight() * textFontWidth / textFont.getWidth()) / 2f; // 2x moins haut
+        float textFontX = (screenWidth - textFontWidth) / 2f;
+        float textFontY = screenHeight * 0.9f - textFontHeight / 2f;
+        
+        batch.draw(textFont, textFontX, textFontY, textFontWidth, textFontHeight);
 
-        batch.draw(abyssZomb1, drawWidth * 0.56f, drawHeight * 0.8f, logoWidth * 2f, logoHeight * 2f);
+        // AbyssBorn à 2/3 de la taille de Text_font (calculé sur la nouvelle taille)
+        float abyssBornWidth = textFontWidth * 2f / 3f;
+        float abyssBornHeight = textFontHeight * 2f / 3f;
+
+        // Centrer AbyssBorn sur Text_font horizontalement
+        float abyssBornX = textFontX + (textFontWidth - abyssBornWidth) / 2f;
+        
+        // Centrer AbyssBorn sur Text_font verticalement et ajouter 10px vers le haut
+        float abyssBornY = textFontY + (textFontHeight - abyssBornHeight) / 2f + 10;
+        
+        batch.draw(abyssLogo, abyssBornX, abyssBornY, abyssBornWidth, abyssBornHeight);
     }
 
     /**
@@ -427,11 +438,8 @@ public class MenuScreen implements Screen {
 
         // Dispose de toutes les textures
         backgroundBlur.dispose();
+        textFont.dispose();
         abyssLogo.dispose();
-        abyssZomb1.dispose();
-        abyssChelou.dispose();
-        abyssSos.dispose();
-        abyssZomb.dispose();
         levelsTexture.dispose();
         inventoryTexture.dispose();
         stuffTexture.dispose();

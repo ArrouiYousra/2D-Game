@@ -3,8 +3,8 @@ package com.tlse1.twodgame;
 import com.badlogic.gdx.Game;
 
 import com.tlse1.twodgame.screens.MenuScreen;
-import com.tlse1.twodgame.screens.TestScreen;
-import com.tlse1.twodgame.screens.SettingsScreen;
+import com.tlse1.twodgame.screens.GameSettingsScreen;
+import com.tlse1.twodgame.screens.StartScreen;
 
 
 /**
@@ -16,7 +16,7 @@ public class TwoDGame extends Game {
     @Override
     public void create() {
         // Lancer l'écran de jeu principal
-        setScreen(new MenuScreen(this));
+        setScreen(new StartScreen(this));
     }
     
     @Override

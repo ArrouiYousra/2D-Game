@@ -18,7 +18,7 @@ import com.tlse1.twodgame.utils.MenuMapping;
 public class DevScreen implements Screen {
 
     // Constantes
-    private static final float BUTTON_START_Y_PERCENT = 0.7f;
+    private static final float BUTTON_START_Y_PERCENT = 0.15f;
     private static final float BUTTON_SPACING_SCALE = 8f;
     private static final float BACKGROUND_COLOR_R = 0.05f;
     private static final float BACKGROUND_COLOR_G = 0.05f;
@@ -163,43 +163,52 @@ public class DevScreen implements Screen {
         float drawHeight = menuBackground.getRegionHeight() * menuScale;
         float buttonWidth = resumeButton.getRegionWidth() * menuScale;
         float buttonHeight = resumeButton.getRegionHeight() * menuScale;
-        float workWidth = work.getWidth();
-        float workHeight = work.getHeight();
         float buttonSpacing = BUTTON_SPACING_SCALE * menuScale;
         float startY = menuY + drawHeight * BUTTON_START_Y_PERCENT;
         float buttonX = menuX + (drawWidth - buttonWidth) / 2f;
 
         // Positions des boutons
-        float resumeY = startY;
-        float restartY = resumeY - (buttonHeight + buttonSpacing);
-        float settingsY = restartY - (buttonHeight + buttonSpacing);
-        float inventoryY = settingsY - (buttonHeight + buttonSpacing);
-        float quitY = inventoryY - (buttonHeight + buttonSpacing);
+        float quitY = startY;
 
-        // Calculer la taille du bouton cross
-        float crossWidth = buttonWidth * 0.12f;
-        float crossHeight = buttonHeight * 0.5f;
-        
-        // Position du bouton cross
-        float crossX = buttonX + drawHeight * 0.6f;
-        float crossY = resumeY + drawHeight * 0.2f;
+        // Background panel basé sur la largeur de la fenêtre pour rester cohérent
+        float panelWidth = screenWidth * 0.35f; // 35% de la largeur de l'écran
+        float panelHeight = screenHeight * 0.9f; // 90% de la hauteur
+        float panelX = (screenWidth - panelWidth) / 2f; // Centré horizontalement
+        float panelY = (screenHeight - panelHeight) / 2f; // Centré verticalement
 
         // Dessiner le panneau de fond
-        batch.draw(backgroundPanel, drawWidth * 0.31f, drawHeight * 0.108f, 
-                   drawWidth * 2.2f, drawHeight * 0.86f);
+        batch.draw(backgroundPanel, panelX, panelY, panelWidth, panelHeight);
+
+        // Work au centre du background panel et contenu dans celui-ci
+        // Work prend 80% de la largeur du panel pour rester bien dans les limites
+        float workWidth = panelWidth * 0.8f;
+        float workHeight = workWidth * 2f / 3f; // Garde le ratio 2/3
+        float workX = panelX + (panelWidth - workWidth) / 2f; // Centré dans le panel
+        float workY = panelY + (panelHeight - workHeight) / 2f + panelHeight * 0.1f; // Centré verticalement avec léger offset vers le haut
+
+        batch.draw(work, workX, workY, workWidth, workHeight);
+
+        // Calculer la taille du bouton cross proportionnelle au panel
+        float crossSize = panelWidth * 0.08f; // 8% de la largeur du panel
+        
+        // Position du bouton cross en haut à droite du panel
+        float crossX = panelX + panelWidth - crossSize - 10f; // 10px de marge
+        float crossY = panelY + panelHeight - crossSize - 10f; // 10px de marge en haut
 
         // Dessiner le bouton cross
-        batch.draw(crossTexture, crossX * 0.98f, crossY * 1.01f, crossWidth * 2f, crossHeight);
+        //batch.draw(crossTexture, crossX, crossY, crossSize, crossSize);
 
+        // Dessiner le bouton quit en bas du panel
+        float quitWidth = panelWidth * 0.6f; // 60% de la largeur du panel
+        float quitHeight = buttonHeight * (quitWidth / buttonWidth); // Garde le ratio
+        float quitX = panelX + (panelWidth - quitWidth) / 2f; // Centré dans le panel
+        quitY = panelY + panelHeight * 0.05f; // 5% du bas du panel
 
-        batch.draw(work, drawWidth * 0.6f, drawHeight * 0.3f, workWidth / 2.5f, workHeight / 2.5f);
-
-        // Dessiner le bouton quit
-        batch.draw(quitTexture, buttonX, quitY, buttonWidth, buttonHeight);
+        //batch.draw(quitTexture, quitX, quitY, quitWidth, quitHeight);
 
         // Mettre à jour les zones cliquables
-        crossButtonBounds.set(crossX, crossY, crossWidth, crossHeight);
-        quitButtonBounds.set(buttonX, quitY, buttonWidth, buttonHeight);
+        crossButtonBounds.set(crossX - 20, crossY, crossSize, crossSize);
+        //quitButtonBounds.set(quitX, quitY, quitWidth, quitHeight);
     }
 
     /**
@@ -224,10 +233,8 @@ public class DevScreen implements Screen {
     private void handleButtonClick(float x, float y) {
         if (crossButtonBounds.contains(x, y)) {
             returnToMenu();
-            
-        } else if (quitButtonBounds.contains(x, y)) {
-            quitGame();
         }
+        
     }
 
     /**
@@ -279,5 +286,6 @@ public class DevScreen implements Screen {
         backgroundPanel.dispose();
         quitTexture.dispose();
         crossTexture.dispose();
+        work.dispose();
     }
 }

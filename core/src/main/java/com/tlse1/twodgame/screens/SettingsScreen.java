@@ -166,22 +166,53 @@ public class SettingsScreen implements Screen {
         float inventoryY = settingsY - (buttonHeight + buttonSpacing);
         float quitY = inventoryY - (buttonHeight + buttonSpacing);
 
-        // Positions des boutons fullscreen/window
-        float fullscreenX = buttonX + drawHeight * 0.2f;
-        float windowX = buttonX - drawHeight * 0.2f;
-        float screenButtonY = resumeY - clickHeight - 35;
-        float screenButtonWidth = settingskWidth * 0.6f;
-        float screenButtonHeight = settingsHeight * 0.6f;
+        // === NOUVELLES POSITIONS - Settings et Text_font scalables comme MenuScreen ===
+        
+        // Calculer les dimensions basées sur la largeur de l'écran pour être scalable
+        float baseWidth = screenWidth * 0.25f; // 25% de la largeur de l'écran
+        
+        // Text_font - calculer la hauteur proportionnellement
+        float textFontWidth = baseWidth;
+        float textFontHeight = (text_font.getHeight() * textFontWidth / text_font.getWidth()) / 2f; // 2x moins haut
+        float textFontX = (screenWidth - textFontWidth) / 2f;
+        float textFontY = screenHeight * 0.9f - textFontHeight / 2f;
+        
+        // Settings_font à 2/3 de la taille de Text_font
+        float settingsFontWidth = textFontWidth * 2f / 3f;
+        float settingsFontHeight = textFontHeight * 2f / 3f;
 
-        // Position du bouton cross - CORRESPOND À LA TEXTURE
+        // Centrer Settings_font sur Text_font horizontalement
+        float settingsFontX = textFontX + (textFontWidth - settingsFontWidth) / 2f;
+        
+        // Centrer Settings_font sur Text_font verticalement et ajouter 10px vers le haut
+        float settingsFontY = textFontY + (textFontHeight - settingsFontHeight) / 2f + 10;
+        
+        // Dessiner Text_font et Settings_font
+        batch.draw(text_font, textFontX, textFontY, textFontWidth, textFontHeight);
+        batch.draw(settings_font, settingsFontX, settingsFontY, settingsFontWidth, settingsFontHeight);
+
+        // === NOUVELLES POSITIONS - Window et Fullscreen (à 1/3 et 2/3) ===
+        
+        // Calculer la hauteur du bouton
+        float screenButtonHeight = screenHeight * 0.1f; // 10% de la hauteur de l'écran
+        
+        // Bouton Window à 1/3 de la largeur de la fenêtre
+        float windowButtonWidth = screenWidth * 0.15f; // 15% de la largeur
+        float windowX = (screenWidth / 3f) - (windowButtonWidth / 2f); // Centré à 1/3
+        
+        // Bouton Fullscreen à 2/3 de la largeur de la fenêtre
+        float fullscreenButtonWidth = screenWidth * 0.15f; // 15% de la largeur
+        float fullscreenX = (screenWidth * 2f / 3f) - (fullscreenButtonWidth / 2f); // Centré à 2/3
+
+        // Position du bouton cross
         float crossX = buttonX + drawHeight * 0.6f;
         float crossY = resumeY + drawHeight * 0.2f;
         
-        // DESSINER LES BOUTONS CLICK/NON_CLICK SELON L'ÉTAT
+        // DESSINER LES BOUTONS CLICK/NON_CLICK SELON L'ÉTAT (aux positions 1/3 et 2/3)
         if (isFullscreen) {
             // En plein écran : afficher click sur fullscreen
-            float clickX = fullscreenX;
-            float non_clickX = windowX;
+            float clickX = fullscreenX + (fullscreenButtonWidth - clickWidth) / 2f; // Centré sur fullscreen
+            float non_clickX = windowX + (windowButtonWidth - clickWidth) / 2f; // Centré sur window
 
             batch.draw(click, clickX, resumeY, clickWidth, clickHeight);
             batch.draw(non_click, non_clickX, resumeY, clickWidth, clickHeight);
@@ -190,8 +221,8 @@ public class SettingsScreen implements Screen {
             non_clickButtonBounds.set(non_clickX, resumeY, clickWidth, clickHeight);
         } else {
             // En mode fenêtré : afficher click sur window
-            float clickX = windowX;
-            float non_clickX = fullscreenX;
+            float clickX = windowX + (windowButtonWidth - clickWidth) / 2f; // Centré sur window
+            float non_clickX = fullscreenX + (fullscreenButtonWidth - clickWidth) / 2f; // Centré sur fullscreen
 
             batch.draw(click, clickX, resumeY, clickWidth, clickHeight);
             batch.draw(non_click, non_clickX, resumeY, clickWidth, clickHeight);
@@ -200,21 +231,19 @@ public class SettingsScreen implements Screen {
             non_clickButtonBounds.set(non_clickX, resumeY, clickWidth, clickHeight);
         }
 
+        // Position Y pour window et fullscreen : juste en dessous des clicks
+        float screenButtonY = resumeY - screenButtonHeight - 10f; // 10px en dessous des clicks
 
         // Dessiner le bouton cross
         batch.draw(cross, crossX * 0.98f, crossY * 1.01f, clickWidth * 2f, clickHeight);
 
-        // Dessiner les icônes fullscreen et window EN DESSOUS
-        batch.draw(full_screen, fullscreenX, screenButtonY, screenButtonWidth, screenButtonHeight);
-        batch.draw(window, windowX, screenButtonY, screenButtonWidth, screenButtonHeight);
+        // Dessiner les icônes fullscreen et window juste en dessous des clicks
+        batch.draw(full_screen, fullscreenX, screenButtonY, fullscreenButtonWidth, screenButtonHeight);
+        batch.draw(window, windowX, screenButtonY, windowButtonWidth, screenButtonHeight);
 
         // Zones cliquables pour les boutons fullscreen/window
-        fullscreenButtonBounds.set(fullscreenX, screenButtonY, screenButtonWidth, screenButtonHeight);
-        windowButtonBounds.set(windowX, screenButtonY, screenButtonWidth, screenButtonHeight);
-
-        // Texte "Settings" au centre
-        batch.draw(text_font, buttonX - drawHeight * 0.18f, resumeY -10, settingskWidth, settingsHeight);
-        batch.draw(settings_font, buttonX , resumeY +10, settingskWidth * 0.5f, settingsHeight * 0.7f);
+        fullscreenButtonBounds.set(fullscreenX, screenButtonY, fullscreenButtonWidth, screenButtonHeight);
+        windowButtonBounds.set(windowX, screenButtonY, windowButtonWidth, screenButtonHeight);
 
         // Commande
         batch.draw(commande, buttonX - drawHeight * 0.3f, settingsY, buttonWidth, buttonHeight);
@@ -229,7 +258,6 @@ public class SettingsScreen implements Screen {
         batch.draw(D, buttonX + drawHeight * 0.407f, settingsY + drawHeight * 0.009f, clickWidth * 0.7f, clickHeight * 0.7f);
 
         // Mettre à jour les zones cliquables des autres boutons
-        // CORRIGÉ : crossButtonBounds utilise maintenant crossX et crossY
         crossButtonBounds.set(crossX, crossY, clickWidth, clickHeight);
         restartButtonBounds.set(buttonX, restartY, buttonWidth, buttonHeight);
         settingsButtonBounds.set(buttonX, settingsY, buttonWidth, buttonHeight);
@@ -338,7 +366,14 @@ public class SettingsScreen implements Screen {
         click.dispose();
         non_click.dispose();
         settings_font.dispose();
+        text_font.dispose();
         full_screen.dispose();
         window.dispose();
+        commande.dispose();
+        Z.dispose();
+        Q.dispose();
+        S.dispose();
+        D.dispose();
+        background.dispose();
     }
 }
